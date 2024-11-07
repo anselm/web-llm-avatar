@@ -2,3 +2,4 @@
 export default {
    base: '/web-llm-avatar/'
 }
+

@@ -54,7 +54,7 @@ function resolve(blob) {
 	// if the caller is asking to process a message but not ready then reply as such
 	if(!engine || !ready) {
 		if(content && content.length) {
-			sys.resolve({llm:{breath:'...still loading',ready}})
+			sys.resolve({llm:{breath:'...still loading',ready,final:true}})
 		}
 		return
 	}
@@ -112,11 +112,23 @@ function resolve(blob) {
 
 }
 
+const workerString = `
+import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
+const handler = new webllm.WebWorkerMLCEngineHandler();
+self.onmessage = (msg) => { handler.onmessage(msg); };
+`
+
 async function load() {
+	console.log("1")
+	const worker = new Worker(URL.createObjectURL(new Blob([workerString],{type:'text/javascript'})),{type:'module'})
+	console.log("24")
 	engine = await CreateWebWorkerMLCEngine(
-		new Worker(`${import.meta.url}/../llm-worker.js`, { type: "module" }),
+		worker,
 		selectedModel,
-		{ initProgressCallback: (status) => { sys.resolve({llm:{status}}) } },
+		{ initProgressCallback: (status) => {
+			console.log("llm status",status)
+			sys.resolve({llm:{status}})
+		}},
 	)
 	ready = true
 	sys.resolve({llm:{ready}})

@@ -1,5 +1,5 @@
 
 import 'orbital-sys'
-import './llm/llm-helper'
-import './chat/chat-helper'
+import './llm-helper'
+import './chat-helper'
 
