@@ -1,7 +1,10 @@
 
-import { CreateWebWorkerMLCEngine } from "@mlc-ai/web-llm";
+import * as webllm from "https://esm.run/@mlc-ai/web-llm"
 
-const selectedModel = "Llama-3.1-8B-Instruct-q4f32_1-MLC";
+const selectedModel = "Llama-3.1-8B-Instruct-q4f32_1-MLC"
+//const selectedModel = "TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC"
+//xxxconst selectedModel = 'snowflake-arctic-embed-s-q0f32-MLC-b4'
+//const selectedModel = "Llama-3.2-3B-Instruct-q4f16_1-MLC"
 
 const MIN_BREATH_LENGTH = 20
 
@@ -20,6 +23,28 @@ const request = {
 
 let engine = null
 let ready = false
+
+const workerString = `
+import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
+const handler = new webllm.WebWorkerMLCEngineHandler();
+self.onmessage = (msg) => { handler.onmessage(msg); };
+`
+
+async function load() {
+	const worker = new Worker(URL.createObjectURL(new Blob([workerString],{type:'text/javascript'})),{type:'module'})
+	engine = await webllm.CreateWebWorkerMLCEngine(
+		worker,
+		selectedModel,
+		{ initProgressCallback: (status) => {
+			console.log("llm status",status)
+			sys.resolve({llm:{ready,status}})
+		}},
+	)
+	ready = true
+	sys.resolve({llm:{ready}})
+}
+
+load()
 
 function stop() {
 	if(!engine || !engine.interruptGenerate) return
@@ -70,6 +95,8 @@ function resolve(blob) {
 		return
 	}
 
+console.log("four")
+
 	// accumulate user utterances onto the overall request context for the llm
 	request.messages.push( { role: "user", content } )
 
@@ -78,7 +105,7 @@ function resolve(blob) {
 	const breath_composer = (fragment=null,finished=false) => {
 		if(!fragment || !fragment.length || finished) {
 			if(breath.length) {
-				sys.resolve({llm:{breath,final:true}})
+				sys.resolve({llm:{breath,ready,final:true}})
 				breath = ''
 			}
 			return
@@ -89,7 +116,7 @@ function resolve(blob) {
 		} else {
 			const i = match[0].length
 			breath += fragment.slice(0,i)
-			sys.resolve({llm:{breath}})
+			sys.resolve({llm:{breath,ready,final:false}})
 			breath = fragment.slice(i)
 		}
 	}
@@ -106,34 +133,10 @@ function resolve(blob) {
 
 		const final = await engine.getMessage()
 		request.messages.push( { role: "assistant", content:final } )
-		sys.resolve({llm:{final}})
+		sys.resolve({llm:{ready,final}})
 
 	})
 
 }
-
-const workerString = `
-import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
-const handler = new webllm.WebWorkerMLCEngineHandler();
-self.onmessage = (msg) => { handler.onmessage(msg); };
-`
-
-async function load() {
-	console.log("1")
-	const worker = new Worker(URL.createObjectURL(new Blob([workerString],{type:'text/javascript'})),{type:'module'})
-	console.log("24")
-	engine = await CreateWebWorkerMLCEngine(
-		worker,
-		selectedModel,
-		{ initProgressCallback: (status) => {
-			console.log("llm status",status)
-			sys.resolve({llm:{status}})
-		}},
-	)
-	ready = true
-	sys.resolve({llm:{ready}})
-}
-
-load()
 
 sys.resolve({resolve})

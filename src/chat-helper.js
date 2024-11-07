@@ -194,16 +194,16 @@ const resolve = (blob) => {
 	if(blob.llm.status) {
 		if(blob.llm.status.text) {
 			const text = blob.llm.status.text
-			if(blob.llm.status.progress) {
+			if(blob.llm.status.progress >= 1.0 ) {
 				setStatus('ready')
 				return
 			}
 			setStatus(text,'loading')
-			const match = text.match(/Loading model from cache\[(\d+)\/(\d+)\]/);
-			if (match) {
-				const [current, total] = match.slice(1).map(Number);
-				//updateProgressOnDisplay(current, total);
-			}
+			//const match = text.match(/Loading model from cache\[(\d+)\/(\d+)\]/);
+			//if (match) {
+			//	const [current, total] = match.slice(1).map(Number);
+			//	//updateProgressOnDisplay(current, total);
+			//}
 		}
 		return
 	}
@@ -213,7 +213,7 @@ const resolve = (blob) => {
 		setStatus('speaking')
 	}
 	if(blob.llm.final) {
-		setStatus('ready')
+		setStatus(blob.llm.ready ? 'ready' : 'loading')
 		//console.log("llm final is",blob.llm.final)
 	}
 }
