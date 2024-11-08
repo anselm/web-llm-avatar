@@ -1,5 +1,5 @@
 
-const configuration = 'You are a whimsical forest creature concerned not with mortal desires.'
+const configuration = 'You are an oceanic manta ray living near a pristine coral reef concerned not with mortal desires but only with the sea.'
 
 const content =
 `
@@ -34,6 +34,10 @@ h1 {
 .status-thinking {
 	background-color: #f1c40f;
 	color: #333;
+}
+.status-pausing {
+	background-color: #e7ec3c;
+	color: #fff;
 }
 .status-speaking {
 	background-color: #e74c3c;
@@ -174,23 +178,41 @@ const configure = () => {
 systemContentInput.addEventListener('input',configure)
 configure()
 
+let rcounter = 10000
+let bcounter = 1
+
 // Pass user requests to llm
 chatForm.addEventListener('submit', async (e) => {
 	e.preventDefault()
+	rcounter += 10000
+	bcounter = 1
+	sys.resolve({
+		rcounter, bcounter,
+		stop:true
+	})
 	const content = messageInput.value.trim()
 	if(content.length) {
+		bcounter++
 		addMessageToDisplay('You', content)
-		sys.resolve({llm:{content}})
+		sys.resolve({
+			rcounter,bcounter,
+			llm:{content}
+		})
 		setStatus('thinking')
 	}
 	messageInput.value = ''
 })
 
-// Handle llm responses
+// Watch traffic
 const resolve = (blob) => {
+
+	if(blob.status) {
+		setStatus(blob.status)
+	}
 
 	if(!blob.llm) return
 
+	// status messages for the act of loading the llm since it is very slow
 	if(blob.llm.status) {
 		if(blob.llm.status.text) {
 			const text = blob.llm.status.text
@@ -208,14 +230,16 @@ const resolve = (blob) => {
 		return
 	}
 
+	// llm has finished an breaths worth of talking
 	if(blob.llm.breath) {
 		addMessageToDisplay('system',blob.llm.breath)
-		setStatus('speaking')
 	}
+
+	// llm has finished all talking for this round
 	if(blob.llm.final) {
-		setStatus(blob.llm.ready ? 'ready' : 'loading')
-		//console.log("llm final is",blob.llm.final)
 	}
+
 }
 
 sys.resolve({resolve})
+

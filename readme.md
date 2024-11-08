@@ -1,6 +1,6 @@
 # Web-LLM-Avatar
 
-Exercising browser based web llm chat with 3d agents
+Exercising browser based web llm chat with 3d agents.
 
 See example at https://anselm.github.io/web-llm-avatar
 
@@ -15,6 +15,10 @@ npm run dev
 
 ## Version 1: A text based interface to client side llm:
 
+LLM Choices:
+
+- https://github.com/mlc-ai/web-llm/
+
 Goals:
 
 1) Handle user input using text chat window
@@ -23,23 +27,36 @@ Goals:
 4) Use a 'breath' segmentation approach to break response into fragments
 5) Look at using service workers for longer persistence of wasm blobs
 
-Currently using https://github.com/mlc-ai/web-llm/ - also see xenova transformerjs.
+Currently using  - also see xenova transformerjs.
 
-## Version 2: Voice Output / Having the bot speak
+## Version 2: Voice Output and viseme generation.
+
+TTS Choices:
+
+- https://huggingface.co/spaces/Xenova/whisper-web
+- https://www.npmjs.com/package/@diffusionstudio/vits-web
 
 Goals:
 
-1) Rejected built in speech output support due to lack of viseme support for word timing.
+1) Avoid built in speech output support due to lack of viseme support for word timing and inability to intercept audio data at all, or accurate time estimation, and also due to low quality voices.
 
-2) Evaluate WASM based solutions such as xenova transformerjs based solutions.
+2) Evaluate WASM based stt and tts such as xenova transformerjs based solutions. Try different background worker solutions for lowest possible latency in tts generation. Also segment speech into breath chunks to lower latency.
 
-3) Evaluate server side speech or cloud based solutions for voice generation.
+3) As a fallback evaluate server side speech or cloud based solutions for voice generation. Basically looking for the lowest latency, most stable, least strings attached solution.
 
 4) Evaluate interruption semantics. A "talk to speak" button may eventually be needed once there is contention between the player voice and the puppet voice. We should also detect keyboard activity, and later human voice activity interruptions - and stop any performance completely on any interruption (stop reasoning, speech, animations, stop everything).
 
-5) Micro-state flagging. The microphone should be turned off while the puppet is actively speaking to prevent self-hearing - and turned on when the puppet is not actually speaking (Arguably this should be done even if we have audio feedback loop removal).
+5) Micro-state boundaries. The microphone should be turned off while the puppet is actively speaking to prevent self-hearing - and turned on when the puppet is not actually speaking (Arguably this should be done even if we have audio feedback loop removal).
 
 6) Speak in breath fragments. Send each fragment for audio processing right away. It may also make sense to introduce 100 or 200 millisecond gaps between breath fragments to listen for human interruption (a later feature).
+
+7) Also perform stt to extract word timings. Do this client side if possible.
+
+Todo here
+
+	- introduce gaps at sentence end to listen
+	- introduce stt for viseme timing
+	- make sure that stop stops everything - including all audio; flushing all state
 
 ## Version 3: Voice Input support
 

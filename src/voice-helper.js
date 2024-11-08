@@ -7,8 +7,8 @@ function voiceSetup() {
         voice = new webkitSpeechRecognition() as any;
         voice.continuous = true;
         voice.interimResults = true;
-        voice.onresult = (event:any) => {
-            for (var i = event.resultIndex; i < event.results.length; ++i) {
+        voice.onresult = (event) => {
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
                 const text = event.results[i][0].transcript as string
                 if (event.results[i].isFinal && text && text.length) {
                 	dealWithUserPrompt(text)

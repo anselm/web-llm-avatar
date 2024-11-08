@@ -36,7 +36,6 @@ async function load() {
 		worker,
 		selectedModel,
 		{ initProgressCallback: (status) => {
-			console.log("llm status",status)
 			sys.resolve({llm:{ready,status}})
 		}},
 	)
@@ -46,11 +45,6 @@ async function load() {
 
 load()
 
-function stop() {
-	if(!engine || !engine.interruptGenerate) return
-	engine.interruptGenerate()
-}
-
 ///
 /// llm-helper resolve
 ///
@@ -59,8 +53,17 @@ function stop() {
 /// publishes {llm:{breath:"llm response fragment",final:true|false}}
 ///
 
+let rcounter = 0
+let bcounter = 0
 
 function resolve(blob) {
+
+	// stop everything?
+	if(blob.stop) {
+		if(!engine || !engine.interruptGenerate) return
+		engine.interruptGenerate()
+		return
+	}
 
 	// ignore non llm traffic
 	if(!blob.llm) return
@@ -72,20 +75,29 @@ function resolve(blob) {
 	}
 
 	// otherwise ignore traffic that is not specifically a request to handle new content
-	if(!blob.llm || !blob.llm.hasOwnProperty('content')) return
+	if(!blob.llm.hasOwnProperty('content')) return
 
 	const content = blob.llm.content
 
 	// if the caller is asking to process a message but not ready then reply as such
 	if(!engine || !ready) {
 		if(content && content.length) {
-			sys.resolve({llm:{breath:'...still loading',ready,final:true}})
+			sys.resolve({
+				llm:{breath:'...still loading',ready,final:true}
+			})
 		}
 		return
 	}
 
-	// immediately hard abort any previous reasoning
-	stop()
+	// ignore old traffic at least at the sentence level
+	if(blob.rcounter) {
+		if(blob.rcounter <= rcounter) {
+			console.warn("llm ignoring old traffic",blob)
+			return
+		}
+		rcounter = blob.rcounter
+		bcounter = blob.bcounter
+	}
 
 	// arguably could publish the fact that we are stopped... but it can be inferred
 	// sys.resolve({llm:{stop:true}})
@@ -95,8 +107,6 @@ function resolve(blob) {
 		return
 	}
 
-console.log("four")
-
 	// accumulate user utterances onto the overall request context for the llm
 	request.messages.push( { role: "user", content } )
 
@@ -105,7 +115,11 @@ console.log("four")
 	const breath_composer = (fragment=null,finished=false) => {
 		if(!fragment || !fragment.length || finished) {
 			if(breath.length) {
-				sys.resolve({llm:{breath,ready,final:true}})
+				bcounter++
+				sys.resolve({
+					rcounter,bcounter,
+					llm:{breath,ready,final:true}
+				})
 				breath = ''
 			}
 			return
@@ -116,7 +130,11 @@ console.log("four")
 		} else {
 			const i = match[0].length
 			breath += fragment.slice(0,i)
-			sys.resolve({llm:{breath,ready,final:false}})
+			bcounter++
+			sys.resolve({
+				rcounter,bcounter,
+				llm:{breath,ready,final:false}
+			})
 			breath = fragment.slice(i)
 		}
 	}

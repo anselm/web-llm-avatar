@@ -8,8 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "predeploy" : "npm run build",
-    "deploy" : "gh-pages -d dist"
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "gh-pages": "^6.2.0",
@@ -17,7 +17,6 @@
     "vite": "^5.4.10"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.74",
     "orbital-sys": "^1.0.1"
   }
 }
