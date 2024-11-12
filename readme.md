@@ -9,73 +9,63 @@ See example at https://anselm.github.io/web-llm-avatar
 ```
 npm i
 npm run dev
+npm run deploy
 ```
 
-# Versions
+# Revisions
 
-## Version 1: A text based interface to client side llm:
+## Revision 1: Text (done)
 
-LLM Choices:
+In the first pass I threw together a text based interface to client side llm - basically just a shim around this client side llm module:
 
-- https://github.com/mlc-ai/web-llm/
+  https://github.com/mlc-ai/web-llm
 
-Goals:
+Goals for the first pass were:
 
-1) Handle user input using text chat window
+1) Cleary handle user input using text chat window
 2) Clearly indicate status of llm: loading, thinking, speaking ready
 3) Allow forced stopping of the bot at any time
 4) Use a 'breath' segmentation approach to break response into fragments
-5) Look at using service workers for longer persistence of wasm blobs
 
-Currently using  - also see xenova transformerjs.
+Note: At the moment Vite is used to compile the source but it needs help to be able to pack background thread workers. Esbuild or Rollup could also be used instead. Or another option would be to use no compilation packaging system at all. For now I did decide to import worker logic from the internet on the fly. Also I use orbital-sys as a pubsub module.
 
-## Version 2: Voice Output and viseme generation.
+## Revision 2: Voice Output (done)
 
-TTS Choices:
+In the second pass I added voice output using wasm based blobs (as opposed to built in speech generation).
 
-- https://huggingface.co/spaces/Xenova/whisper-web
-- https://www.npmjs.com/package/@diffusionstudio/vits-web
-
-Goals:
+Goals that were accomplished here:
 
 1) Avoid built in speech output support due to lack of viseme support for word timing and inability to intercept audio data at all, or accurate time estimation, and also due to low quality voices.
 
-2) Evaluate WASM based stt and tts such as xenova transformerjs based solutions. Try different background worker solutions for lowest possible latency in tts generation. Also segment speech into breath chunks to lower latency.
+2) Evaluate WASM based TTS. Try different background worker solutions for lowest possible latency in TTS generation. This is the choice I ended up with: https://www.npmjs.com/package/@diffusionstudio/vits-web - https://huggingface.co/docs/transformers/en/model_doc/vits . 
 
-3) As a fallback evaluate server side speech or cloud based solutions for voice generation. Basically looking for the lowest latency, most stable, least strings attached solution.
+3) Speak in breath fragments. Send each fragment for audio processing right away. It may also make sense to introduce 100 or 200 millisecond gaps between breath fragments to listen for human interruption (a later feature).
 
-4) Evaluate interruption semantics. A "talk to speak" button may eventually be needed once there is contention between the player voice and the puppet voice. We should also detect keyboard activity, and later human voice activity interruptions - and stop any performance completely on any interruption (stop reasoning, speech, animations, stop everything).
+## Revision 3: Voice Input (ongoing)
 
-5) Micro-state boundaries. The microphone should be turned off while the puppet is actively speaking to prevent self-hearing - and turned on when the puppet is not actually speaking (Arguably this should be done even if we have audio feedback loop removal).
+Voice based interaction. The human participant should be able to speak naturally and have the llm capture complete sentences which it should then translate to text locally, and then be able to respond intelligently. Specifically the human should be able to interrupt the llm.
 
-6) Speak in breath fragments. Send each fragment for audio processing right away. It may also make sense to introduce 100 or 200 millisecond gaps between breath fragments to listen for human interruption (a later feature).
+Performing audio based interruption is hard because by default modern browsers hear themselves - if the browser is vocalizing through the speakers - it also hears that vocalization. We can ignore microphone input while the browser is speaking - but then we also fail to hear the participant interrupting.
 
-7) Also perform stt to extract word timings. Do this client side if possible.
+Approaches and workarounds:
 
-Todo here
+1) Try a variety of trivial interruption semantics - multiple may be used:
 
-	- introduce gaps at sentence end to listen
-	- introduce stt for viseme timing
-	- make sure that stop stops everything - including all audio; flushing all state
+- A "talk to speak" button - as a way to distinguish player voice from locally produced voice.
+- A 'stop talking' button - as a way to force the puppet from producing voice for a while.
+- Have small audio pauses while producing voice to listen for player voice.
+- Do a semantic level analysis of recognized voice to make sure it differs from self produced voice.
+- Note that the built-in speech to text support can be used for these approaches.
 
-## Version 3: Voice Input support
+2) Try brute force loopback detection. Leave the microphone on all the time and subtract the self-generated audio (software loopback cancellation). Webrtc which has built in loopback cancellation and it may be available in this context. The built-in speech to text CANNOT be used here because there are no audio streams provided as far as I can tell (it bypasses the audio system?).
 
-Voice based interaction. The human participant should be able to speak naturally and have the llm capture complete sentences which it should then translate to text locally, and then be able to respond intelligently. Interruption support is important and this may mean noise reduction strategies especially loopback noise prevention such as webrtc supports. This may mean that the built in speech to text support of most browsers cannot be used because they do not participate in the audio processing pipeline.
-
-1) Approach #1: Built in Browser Voice Recognition:
-
-Works well for english. Unfortunately cannot squelch the loopback from the robot talking, so the voice recognition hears itself. Cannot leverage webrtc or other noise cancellation techniques because the voice cannot be re-routed or processed prior to recognition. This *may* still be a useful option since voice recognition is expensive - but it interferes with other requirements.
-
-2) Approach #2: WASM based browser voice recognition:
-
-There are several options here but it looks like modern browsers are not quite yet ready to deliver on this capability. For example ggerganov's whisper.cpp module won't run on mobile due to a WASM SIMD issue. And while other models do run well, they seem to require webgpu - which not all devices have, or have enabled. If the use case was a "must have" then people would buy the right hardware, but for applications where the audio is more of an add-on or gimmick then the industry is not quite ready. There are several options here however:
+3) Overall try a variety of WASM based voice recognition solutions. There are several options here but it looks like modern browsers are not quite yet ready to deliver on this capability. For example ggerganov's whisper.cpp module won't run on mobile due to a WASM SIMD issue.
 
 - https://github.com/huggingface/transformers.js/tree/v3/examples/webgpu-whisper (works well)
 - https://huggingface.co/distil-whisper/distil-small.en
 - https://github.com/pluja/whishper -> https://github.com/m-bain/whisperX (not standalone)
 - https://github.com/Vaibhavs10/insanely-fast-whisper (not standalone)
 - https://github.com/ggerganov/whisper.cpp (unfortunately does not work on mobile SIMD WASM issue)
-		see also https://whisper.ggerganov.com/
 - https://github.com/homebrewltd/ichigo (interesting but not exactly what we want)
 - https://github.com/FL33TW00D/whisper-turbo (webgpu)
 - https://huggingface.co/spaces/Xenova/distil-whisper-web (seems slow?)
@@ -83,11 +73,20 @@ There are several options here but it looks like modern browsers are not quite y
 - https://huggingface.co/spaces/Xenova/whisper-word-level-timestamps
 - https://www.reddit.com/r/LocalLLaMA/comments/1fvb83n/open_ais_new_whisper_turbo_model_runs_54_times/ ?
 
-3) Approach #3: Server side Voice Recognition?
+4) Server side Voice Recognition?
 
 This unfortunately ties an application to a server, which I find limiting. However the server can bring significant powers to bear on the problem, including improved audio filtering capabilities. Also browser loopback detection such as supported in browser using webrtc become available - and can be performed prior to sending audio to server.
 
-## Version 4: Rigged and animated 3d puppet
+## Revision 4: Animated Pupppet
 
-TBD. Hook up to facial and body performances for animated 3d behavior using Ready Player Me models that are already rigged for facial performances.
+The primary challenge of an animated puppet face is to map audio to facial performances. 
 
+1) Test STT with word timings. One way to animate a facial performance is to know the exact word timings. Given word timings it is possible to know what phonemes are being mouthed at a specific time, and to then map those phonemes to visemes at that time. Ideally the original TTS generator (VITS at the moment) could do this - but it is not exposed in off the shelf builds. For now Xenova Whisper seems to do a good job of recovering word timing - see: https://huggingface.co/spaces/Xenova/whisper-web ).
+
+2) Other options here are to manufacture our own neural network that maps spectographic analysis of audio to visemes directly.
+
+## Issues
+
+- an actual stop button might be nice
+- when you stop (by typing nothing and hitting return) it doesn't paint the right status or button state
+- stop should probably also stop voice recog accumulation and reset it

@@ -1,13 +1,19 @@
 
+// feels easiest to just fetch these from the web
 import * as webllm from "https://esm.run/@mlc-ai/web-llm"
 
+// this is the only model that behaves well
 const selectedModel = "Llama-3.1-8B-Instruct-q4f32_1-MLC"
+
+// these models just seem to behave badly in a variety of different ways
 //const selectedModel = "TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC"
-//xxxconst selectedModel = 'snowflake-arctic-embed-s-q0f32-MLC-b4'
+//const selectedModel = 'snowflake-arctic-embed-s-q0f32-MLC-b4'
 //const selectedModel = "Llama-3.2-3B-Instruct-q4f16_1-MLC"
 
+// length of an utterance till it is considered 'a full breaths worth'
 const MIN_BREATH_LENGTH = 20
 
+// llm state containing configuration and history to extend
 const request = {
 	stream: true,
 	messages: [
@@ -21,15 +27,18 @@ const request = {
 	breath: ''
 }
 
+// local flags for background loaded llm
 let engine = null
 let ready = false
 
+// worker - as a string because vite struggles to deal with dynamically resolved imports
 const workerString = `
 import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
 const handler = new webllm.WebWorkerMLCEngineHandler();
 self.onmessage = (msg) => { handler.onmessage(msg); };
 `
 
+// fetch the llm once
 async function load() {
 	const worker = new Worker(URL.createObjectURL(new Blob([workerString],{type:'text/javascript'})),{type:'module'})
 	engine = await webllm.CreateWebWorkerMLCEngine(
@@ -45,6 +54,13 @@ async function load() {
 
 load()
 
+
+// rcounter = request counter, increments once per player request to the llm
+// bcounter = breath counter, increments per breath fragment of a response
+
+let rcounter = 0
+let bcounter = 0
+
 ///
 /// llm-helper resolve
 ///
@@ -52,9 +68,6 @@ load()
 ///
 /// publishes {llm:{breath:"llm response fragment",final:true|false}}
 ///
-
-let rcounter = 0
-let bcounter = 0
 
 function resolve(blob) {
 
@@ -71,6 +84,7 @@ function resolve(blob) {
 	// configuration
 	if(blob.llm && blob.llm.configuration) {
 		request.messages[0].content = blob.llm.configuration
+		console.log(request)
 		return
 	}
 
@@ -157,4 +171,5 @@ function resolve(blob) {
 
 }
 
+// register this listener with the pubsub backbone
 sys.resolve({resolve})

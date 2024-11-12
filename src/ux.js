@@ -1,5 +1,5 @@
 
-const configuration = 'You are an oceanic manta ray living near a pristine coral reef concerned not with mortal desires but only with the sea.'
+const configuration = 'Haiku master manta ray, talks only in Haiku, what depths find you?'
 
 const content =
 `
@@ -178,12 +178,40 @@ const configure = () => {
 systemContentInput.addEventListener('input',configure)
 configure()
 
+// a user can enable / disable voice
+let desired = true
+
+function voiceButton_set(text=null) {
+	if(text) {
+		voiceButton.innerHTML = text
+		return
+	}
+	voiceButton.innerHTML = desired ? "Click to disable voice" : "Click to enable voice"
+}
+
+voiceButton.onclick = () => {
+	desired = desired ? false : true
+	voiceButton_set()
+	sys.resolve({voice:{desired}})
+}
+voiceButton.onclick()
+
+// a request counter that is incremented once per fresh user sentence submission
 let rcounter = 10000
+// a breath counter that typically is 1 - signifying a reset of the response breath fragments
 let bcounter = 1
 
-// Pass user requests to llm
-chatForm.addEventListener('submit', async (e) => {
-	e.preventDefault()
+// send to llm
+function sendtollm(content) {
+	addMessageToDisplay('You', content)
+	sys.resolve({
+		rcounter,bcounter,
+		llm:{content}
+	})
+	setStatus('thinking')
+}
+
+function textinput_resolve() {
 	rcounter += 10000
 	bcounter = 1
 	sys.resolve({
@@ -192,27 +220,56 @@ chatForm.addEventListener('submit', async (e) => {
 	})
 	const content = messageInput.value.trim()
 	if(content.length) {
-		bcounter++
-		addMessageToDisplay('You', content)
-		sys.resolve({
-			rcounter,bcounter,
-			llm:{content}
-		})
-		setStatus('thinking')
+		sendtollm(content)
+	} else {
+		// slight hack - it would be better to more gracefully isolate llm start status @todo
+		setStatus('ready')
 	}
 	messageInput.value = ''
+
+	// @todo it might be nice to detect the condition here more gracefully
+	voiceButton_set()	
+}
+
+// Pass user requests to llm
+chatForm.addEventListener('submit', async (e) => {
+	e.preventDefault()
+	textinput_resolve(messageInput.value)
 })
 
 // Watch traffic
 const resolve = (blob) => {
 
-	if(blob.status) {
-		setStatus(blob.status)
+	// wire voice input into text panel also
+	if(blob.voice && blob.voice.text) {
+		messageInput.value = blob.voice.text
+		if(blob.voice.final) {
+			textinput_resolve(blob.voice.text)
+		}
+		return
 	}
 
+	// set voice enabled disabled button
+	if(blob.status) {
+		if(blob.status === 'speaking') {
+			voiceButton_set('Speaking disabled')
+		}
+		if(blob.status === 'ready') {
+			voiceButton_set('Speaking enabled')
+		}
+	}
+
+
+	// set visible display of llm readiness
+	if(blob.status) {
+		setStatus(blob.status)
+		return
+	}
+
+	// ignore traffic not from llm after this line
 	if(!blob.llm) return
 
-	// status messages for the act of loading the llm since it is very slow
+	// display status messages for the act of loading the llm since it is very slow
 	if(blob.llm.status) {
 		if(blob.llm.status.text) {
 			const text = blob.llm.status.text
@@ -230,16 +287,17 @@ const resolve = (blob) => {
 		return
 	}
 
-	// llm has finished an breaths worth of talking
+	// llm has finished an breaths worth of talking; publish to display
 	if(blob.llm.breath) {
 		addMessageToDisplay('system',blob.llm.breath)
 	}
 
-	// llm has finished all talking for this round
+	// llm has finished all talking for this round - do nothing for now
 	if(blob.llm.final) {
 	}
 
 }
 
+// register this resolver to catch published events on the pubsub backbone
 sys.resolve({resolve})
 

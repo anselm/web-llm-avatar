@@ -1,9 +1,6 @@
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// tts service
-//
-////////////////////////////////////////////////////////////////////////////////
+// import the tts
+// uses a string for the worker because vite has some issues with dynamic imports
 
 // import * as tts from 'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm'
 // import * as tts from '@diffusionstudio/vits-web'
@@ -28,11 +25,9 @@ self.addEventListener('message', async (e) => {
 
 const worker_tts = new Worker(URL.createObjectURL(new Blob([ttsString],{type:'text/javascript'})),{type:'module'})
 
-////////////////////////////////////////////////////////////////////////////////
 //
 // hack code to fix up how dollar amounts are said
 //
-////////////////////////////////////////////////////////////////////////////////
 
 function numberToWords(num) {
 	const a = [
@@ -67,11 +62,9 @@ function fixDollars(sentence) {
 	});
 }
 
-////////////////////////////////////////////////////////////////////////////////
 //
-// utilities
+// utilities - unused
 //
-////////////////////////////////////////////////////////////////////////////////
 
 const isServer = typeof window === 'undefined'
 
@@ -90,23 +83,31 @@ const buffer_to_bytes = (buffer) => {
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// tts observer
-//
-////////////////////////////////////////////////////////////////////////////////
-
-let current_audio = null
-let audioqueue = []
-let ttsqueue = []
-
+// debug logging helper
 function log() {
 	//console.log(...arguments)
 }
 
+//
+// tts observer
+//
+
+// track the current audio being performed to allow for a hard abort on demand
+let current_audio = null
+
+// queue of audio performances to perform
+let audioqueue = []
+
+// queue of text utterances to turn into audio performances
+let ttsqueue = []
+
+// track last seen external request counter and throw away old requests
 let rcounter = 0
+
+// track last seen external breath fragments and throw away old requests
 let bcounter = 0
 
+// stuff audio onto a queue and play them all - unless they are outdated - which means abort hard
 const audioqueue_helper = async (blob) => {
 	if(blob) {
 		audioqueue.push(blob)
@@ -139,6 +140,7 @@ const audioqueue_helper = async (blob) => {
 	audioqueue_helper()
 }
 
+// stuff text onto a queue for tts - unless it is outdated which means abort basically
 const ttsqueue_helper = async (blob=null) => {
 
 	// explicit request - push onto queue and return if queue is not empty
@@ -195,9 +197,10 @@ const ttsqueue_helper = async (blob=null) => {
 
 }
 
+// watch requests flying past on the pubsub backbone
 function resolve(blob) {
 
-	// stop everything asap
+	// stop everything asap!?
 	if(blob.stop) {
 		if(blob.rcounter) rcounter = blob.rcounter
 		if(blob.bcounter) bcounter = blob.bcounter
@@ -211,7 +214,7 @@ function resolve(blob) {
 		return
 	}
 
-	// handle only these
+	// handle only these below
 	if(!blob.llm || !blob.llm.breath) return
 
 	// advance rcounter but ignore older
@@ -224,5 +227,6 @@ function resolve(blob) {
 	ttsqueue_helper(blob)
 }
 
+// listen to the pubsub backbone for work to do
 sys.resolve({resolve})
 

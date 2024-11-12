@@ -1,69 +1,90 @@
-let voice = null
 
-function voiceSetup() {
+let allowed = true
+let desired = false
+let listening = false
 
-    if ('webkitSpeechRecognition' in window) {
-        const webkitSpeechRecognition = window['webkitSpeechRecognition'] as any;
-        voice = new webkitSpeechRecognition() as any;
-        voice.continuous = true;
-        voice.interimResults = true;
-        voice.onresult = (event) => {
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                const text = event.results[i][0].transcript as string
-                if (event.results[i].isFinal && text && text.length) {
-                	dealWithUserPrompt(text)
-                }
-            }
-        }
-    } else {
-        console.error('webkitSpeechRecognition is not supported in this browser.');
-    }
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) {
+	alert("Speech Recognition API is not supported in this browser.")
 }
 
-let voicePermitted = false
-let voiceDesiredState = false
-let voiceState = false
+const recognition = new SpeechRecognition()
+recognition.lang = 'en-US'
+recognition.interimResults = true
+recognition.continuous = true
 
-function updateVoiceState() {
+recognition.onstart = () => {
+	// console.log("Voice recognition started...")
+}
 
-	if(!voice) return
+recognition.onerror = (event) => {
+	// console.error("Voice Error occurred in recognition:", event.error)
+}
 
-	if(!voicePermitted) {
-		voiceButton.innerHTML = "Voice is disabled"
-	} else if(voiceDesiredState) {
-		voiceButton.innerHTML = "Click to disable Voice Input"
-	} else {
-		voiceButton.innerHTML = "Click to enable Voice Input"
+recognition.configure = () => {
+	if(!allowed || !desired) {
+		if(listening === true) {
+			console.log("... voice disabled")
+			recognition.stop()
+			listening = false
+		}
+	} else if(listening === false) {
+		console.log("... voice enabled")
+		recognition.start()
+		listening = true
+	}	
+}
+
+// recognition.continuous is broken - one of the many bugs in the built in speech recognition system
+recognition.reset = () => {
+	if(!allowed || !desired) return
+	if(listening === true) {
+		recognition.stop();
+		listening = false;
 	}
+	setTimeout( () => {
+		recognition.configure()
+	},200)
+}
 
-	if(!voiceState && voiceDesiredState && voicePermitted) {
-		voiceState = true
-		voice.start()
-	}
-
-	else if(voiceState && (!voiceDesiredState || !voicePermitted)) {
-		voiceState = false
-		voice.stop()
+recognition.onresult = (event) => {
+	const timestamp = event.timeStamp
+	// throw away everything except the first event because it is just too confusing otherwise
+	for (let i = event.resultIndex; i < 1 && i < event.results.length; ++i) {
+		const data = event.results[i]
+		const text = data[0].transcript
+		const final = data.isFinal
+		const confidence = data[0].confidence
+		const blob = {voice:{text, timestamp, confidence, final}}
+		//console.log(text,timestamp,confidence,final,i)
+		sys.resolve(blob)
+		if(final) {
+			recognition.reset()
+		}
 	}
 }
 
-function setVoicePermitted(state=true) {
-	voicePermitted = state
-	updateVoiceState()
-}
+const resolve = (blob) => {
 
-function setVoiceDesired() {
-	// browser forces user interaction to start the voice service
-	if(!voice) {
-		voiceSetup()
+	if(blob.status) {
+		if(blob.status === 'speaking') {
+			allowed = false
+		}
+		if(blob.status === 'ready') {
+			allowed = true
+		}
+		recognition.configure()
 	}
-	// set desired state
-	voiceDesiredState = voiceDesiredState ? false : true
-	updateVoiceState()
+
+
+	if(!blob.voice || blob.voice.text) return
+	if(blob.voice.hasOwnProperty('allowed')) {
+		allowed = blob.voice.allowed
+	}
+	if(blob.voice.hasOwnProperty('desired')) {
+		desired = blob.voice.desired
+	}
+	recognition.configure()
 }
 
-voiceButton.onclick = setVoiceDesired
-
-
-
-
+sys.resolve({resolve})

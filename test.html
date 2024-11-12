@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recognition Test</title>
+</head>
+<body>
+    <h1>Voice Recognition Test</h1>
+    <button id="start">Start Recognition</button>
+    <button id="stop">Stop Recognition</button>
+    <p id="status">Click "Start Recognition" to begin</p>
+
+    <script>
+        // Check if the browser supports SpeechRecognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.error("Speech Recognition API is not supported in this browser.");
+            document.getElementById("status").innerText = "Speech Recognition API is not supported in this browser.";
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US'; // Set language
+            recognition.interimResults = false; // Only show final results
+            recognition.continuous = false; // Stops after a single phrase
+
+            recognition.onstart = () => {
+                console.log("Voice recognition started...");
+                document.getElementById("status").innerText = "Listening...";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                console.log("Recognized text:", transcript);
+                document.getElementById("status").innerText = "Recognized text: " + transcript;
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Error occurred in recognition:", event.error);
+                document.getElementById("status").innerText = "Error: " + event.error;
+            };
+
+            recognition.onend = () => {
+                console.log("Voice recognition ended.");
+                document.getElementById("status").innerText = "Recognition stopped. Click 'Start' to try again.";
+            };
+
+            document.getElementById("start").onclick = () => {
+                recognition.start();
+            };
+
+            document.getElementById("stop").onclick = () => {
+                recognition.stop();
+            };
+        }
+    </script>
+</body>
+</html>
+
