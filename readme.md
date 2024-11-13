@@ -1,6 +1,6 @@
 # Web-LLM-Avatar
 
-Exercising browser based web llm chat with 3d agents.
+Exercising browser based web llm chat with 3d agents. Also exercising a pubsub architecture.
 
 See example at https://anselm.github.io/web-llm-avatar
 
@@ -49,17 +49,24 @@ Performing audio based interruption is hard because by default modern browsers h
 
 Approaches and workarounds:
 
-1) Try a variety of trivial interruption semantics - multiple may be used:
+1) [TESTED] Turn off microphone while bot is speaking. This works "ok" but is annoying when the bot has a long sentence to utter.
 
-- A "talk to speak" button - as a way to distinguish player voice from locally produced voice.
-- A 'stop talking' button - as a way to force the puppet from producing voice for a while.
-- Have small audio pauses while producing voice to listen for player voice.
-- Do a semantic level analysis of recognized voice to make sure it differs from self produced voice.
-- Note that the built-in speech to text support can be used for these approaches.
+2) Stop talking button. This is probably needed in general.
 
-2) Try brute force loopback detection. Leave the microphone on all the time and subtract the self-generated audio (software loopback cancellation). Webrtc which has built in loopback cancellation and it may be available in this context. The built-in speech to text CANNOT be used here because there are no audio streams provided as far as I can tell (it bypasses the audio system?).
+3) Talk to speak button. This feels like a bad idea; disrupts voice flow? May test.
 
-3) Overall try a variety of WASM based voice recognition solutions. There are several options here but it looks like modern browsers are not quite yet ready to deliver on this capability. For example ggerganov's whisper.cpp module won't run on mobile due to a WASM SIMD issue.
+4) Micro-pause to enable microphone briefly to detect interruption. Test this.
+
+5) Semantic level analysis of heard voice to determine if self-vocalizations heard? Probably a dumb idea.
+
+6) [TESTED] Leave microphone on but employ echo cancellation using built in echo cancellation,. This works "ok" - it does seem to still hear itself. Currently the system is setup to stop the engine from speaking if it hears a potential interruption, and it is stopping too aggressively because it hears itself. See:
+
+- https://webrtc.googlesource.com/src/+/refs/heads/main/modules/audio_processing/aec3/
+- https://www.mathworks.com/help/audio/ug/acoustic-echo-cancellation-aec.html#
+- https://news.ycombinator.com/item?id=40918152
+- https://dev.to/fosteman/how-to-prevent-speaker-feedback-in-speech-transcription-using-web-audio-api-2da4
+
+I'm not 100% sure that the voice recognition participates in echo cancellation. May need testing either way. Otherwise there are third party stt services to try:
 
 - https://github.com/huggingface/transformers.js/tree/v3/examples/webgpu-whisper (works well)
 - https://huggingface.co/distil-whisper/distil-small.en
@@ -73,7 +80,7 @@ Approaches and workarounds:
 - https://huggingface.co/spaces/Xenova/whisper-word-level-timestamps
 - https://www.reddit.com/r/LocalLLaMA/comments/1fvb83n/open_ais_new_whisper_turbo_model_runs_54_times/ ?
 
-4) Server side Voice Recognition?
+7) Falback to server side Voice Recognition?
 
 This unfortunately ties an application to a server, which I find limiting. However the server can bring significant powers to bear on the problem, including improved audio filtering capabilities. Also browser loopback detection such as supported in browser using webrtc become available - and can be performed prior to sending audio to server.
 
@@ -85,8 +92,45 @@ The primary challenge of an animated puppet face is to map audio to facial perfo
 
 2) Other options here are to manufacture our own neural network that maps spectographic analysis of audio to visemes directly.
 
+# Pub Sub
+
+I'm exploring using a pubsub architecture to decouple components. These are the events:
+
+1) UX publishes "voice recognition enabled" or "voice recognition disabled" events ... observed by voice recognition.
+
+2) UX publishes input text from the user ... observed by LLM.
+
+3) UX publishes a 'stop!' event ... observed by LLM and TTS.
+
+4) LLM publishes a general status string ... observed by UX.
+
+5) LLM publishes breath segments ... observed by UX and TTS.
+
+6) TTS publishes if using audio speaker or not ... observed by the voice recognition.
+
+7) Voice recognition publishes input voice ... observed by the ux who forwards to llm.
+
+Can this pubsub pattern be made more visible or clear?
+
+One way would be to require services to have exposed handles, and then to wire handles up explicitly in one place. This is a form of pseudo function late binding which while decoupling static imports from each other, still couples them at runtime in a way that may not be a huge win?
+
+const wires = [
+  [ "/ux/input", "llm/input" ],
+  [ "/ux/enabled", "voice/enabled" ],
+  [ "/ux/disabled", "voice/disabled" ],
+  [ "/ux/stop", "llm/stop" ],
+  [ "/llm/status", "ux/status" ],
+  [ "/llm/breath", "ux/conversation" ],
+  [ "/llm/breath", "tts/input"],
+  [ "/tts/speaking", "recog/disabled"],
+  [ "recog/text", "ux/input" ]
+]
+
+Another way may be to turn on pre-filtering so that we know who emitters and consumers are more clearly, and then a debug display of extant wires can be produced at runtime. This could help with introspection; basically creating a kind of debugging layer for pubsub - and it would produce a display similar to the above.
+
 ## Issues
 
 - an actual stop button might be nice
 - when you stop (by typing nothing and hitting return) it doesn't paint the right status or button state
-- stop should probably also stop voice recog accumulation and reset it
+
+

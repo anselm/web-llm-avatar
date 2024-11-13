@@ -1,5 +1,9 @@
 
+/////////////////////////////////////////////////////////////////////////////////////
+
 const configuration = 'Haiku master manta ray, talks only in Haiku, what depths find you?'
+
+/////////////////////////////////////////////////////////////////////////////////////
 
 const content =
 `
@@ -116,6 +120,8 @@ button:hover {
 </div>
 `
 
+/////////////////////////////////////////////////////////////////////////////////////
+
 const div = document.createElement('div')
 div.innerHTML = content
 document.body.appendChild(div)
@@ -130,6 +136,8 @@ const progressBar = document.getElementById('progress-bar');
 const progressText = document.getElementById('progress-text');
 const voiceButton = document.getElementById('voice-button');
 
+/////////////////////////////////////////////////////////////////////////////////////
+
 let status = 'loading'
 
 function setStatus(status,code=null) { // ready, speaking, thinking, loading
@@ -137,6 +145,8 @@ function setStatus(status,code=null) { // ready, speaking, thinking, loading
 	statusBox.className = `status-${code}`;
 	statusBox.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 }
+
+/////////////////////////////////////////////////////////////////////////////////////
 
 function updateProgress(current, total) {
 
@@ -155,6 +165,8 @@ function updateProgress(current, total) {
 	}
 }
 
+/////////////////////////////////////////////////////////////////////////////////////
+
 function addMessageToDisplay(sender, text) {
 	const messageElement = document.createElement('div');
 	messageElement.textContent = `${sender}: ${text}`;
@@ -169,6 +181,8 @@ window.addEventListener('load', () => {
 	messageInput.focus()
 })
 
+/////////////////////////////////////////////////////////////////////////////////////
+
 // A user can change preprompt, if so then write it back into the prompt
 
 const configure = () => {
@@ -177,6 +191,8 @@ const configure = () => {
 }
 systemContentInput.addEventListener('input',configure)
 configure()
+
+/////////////////////////////////////////////////////////////////////////////////////
 
 // a user can enable / disable voice
 let desired = true
@@ -196,60 +212,59 @@ voiceButton.onclick = () => {
 }
 voiceButton.onclick()
 
+/////////////////////////////////////////////////////////////////////////////////////
+
 // a request counter that is incremented once per fresh user sentence submission
 let rcounter = 10000
 // a breath counter that typically is 1 - signifying a reset of the response breath fragments
 let bcounter = 1
 
-// send to llm
-function sendtollm(content) {
-	addMessageToDisplay('You', content)
-	sys.resolve({
-		rcounter,bcounter,
-		llm:{content}
-	})
-	setStatus('thinking')
-}
-
-function textinput_resolve() {
+function textinput_resolve(text,final) {
+	// advance the entire system request counter; which will abort any previous ongoing activity
 	rcounter += 10000
 	bcounter = 1
 	sys.resolve({
 		rcounter, bcounter,
 		stop:true
 	})
-	const content = messageInput.value.trim()
-	if(content.length) {
-		sendtollm(content)
+	// tidy up any inbound content and send to llm for processing
+	if(text && text.length && final) {
+		addMessageToDisplay('You', text)
+		sys.resolve({
+			rcounter,bcounter,
+			llm:{content:text}
+		})
+		setStatus('thinking')
 	} else {
-		// slight hack - it would be better to more gracefully isolate llm start status @todo
 		setStatus('ready')
 	}
-	messageInput.value = ''
 
 	// @todo it might be nice to detect the condition here more gracefully
-	voiceButton_set()	
+	voiceButton_set()
 }
 
 // Pass user requests to llm
 chatForm.addEventListener('submit', async (e) => {
 	e.preventDefault()
-	textinput_resolve(messageInput.value)
+	textinput_resolve(messageInput.value.trim(),true)
+	messageInput.value = ''
 })
+
+/////////////////////////////////////////////////////////////////////////////////////
 
 // Watch traffic
 const resolve = (blob) => {
 
 	// wire voice input into text panel also
-	if(blob.voice && blob.voice.text) {
-		messageInput.value = blob.voice.text
+	if(blob.voice && blob.voice.input) {
+		messageInput.value = blob.voice.input
 		if(blob.voice.final) {
-			textinput_resolve(blob.voice.text)
+			textinput_resolve(blob.voice.input,false)
 		}
 		return
 	}
 
-	// set voice enabled disabled button
+	// set voice enabled disabled button - @todo may not be needed
 	if(blob.status) {
 		if(blob.status === 'speaking') {
 			voiceButton_set('Speaking disabled')
@@ -298,6 +313,5 @@ const resolve = (blob) => {
 
 }
 
-// register this resolver to catch published events on the pubsub backbone
 sys.resolve({resolve})
 
