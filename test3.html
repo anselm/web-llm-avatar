@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polyphonic Audio Recorder with Echo Cancellation</title>
+</head>
+<body>
+    <h1>Polyphonic Audio Recorder</h1>
+    <button id="start">Start Recording</button>
+    <button id="stop" disabled>Stop Recording</button>
+    <button id="play" disabled>Play Last Recording</button>
+    <label>
+        <input type="checkbox" id="echoToggle" checked>
+        Echo Cancellation
+    </label>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioContext;
+        let audioBuffer = null; // Holds the previous recording
+        let microphoneStream = null;
+
+        const constraints = {
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        };
+
+        async function setupAudio() {
+            try {
+                // Request microphone access with constraints
+                microphoneStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("Microphone accessed with constraints:", constraints);
+
+                // Set up media recorder
+                mediaRecorder = new MediaRecorder(microphoneStream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                    console.log("New audio recorded and decoded.");
+                    audioChunks = [];
+                    document.getElementById("play").disabled = false;
+                };
+            } catch (err) {
+                console.error("Error accessing microphone:", err);
+            }
+        }
+
+        async function restartWithNewConstraints() {
+            if (microphoneStream) {
+                // Stop existing tracks
+                microphoneStream.getTracks().forEach((track) => track.stop());
+            }
+
+            // Update constraints based on echo cancellation toggle
+            constraints.audio.echoCancellation = document.getElementById("echoToggle").checked;
+            console.log("New constraints:", constraints);
+
+            await setupAudio();
+        }
+
+        document.getElementById("start").onclick = () => {
+            if (mediaRecorder && audioContext) {
+                if (audioBuffer) {
+                    // Play previous recording
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(audioContext.destination);
+                    source.start();
+                    console.log("Playing previous recording...");
+                }
+
+                // Start recording new input
+                mediaRecorder.start();
+                console.log("Recording started...");
+                document.getElementById("start").disabled = true;
+                document.getElementById("stop").disabled = false;
+            }
+        };
+
+        document.getElementById("stop").onclick = () => {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                console.log("Recording stopped.");
+                document.getElementById("start").disabled = false;
+                document.getElementById("stop").disabled = true;
+            }
+        };
+
+        document.getElementById("play").onclick = () => {
+            if (audioBuffer && audioContext) {
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start();
+                console.log("Playing last recording...");
+            }
+        };
+
+        document.getElementById("echoToggle").onchange = () => {
+            console.log("Echo cancellation toggled.");
+            restartWithNewConstraints();
+        };
+
+        setupAudio().catch((err) => console.error("Error setting up audio:", err));
+    </script>
+</body>
+</html>
+

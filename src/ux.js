@@ -120,30 +120,28 @@ button:hover {
 </div>
 `
 
-/////////////////////////////////////////////////////////////////////////////////////
+const chatdiv = document.createElement('div')
+document.body.appendChild(chatdiv)
+chatdiv.innerHTML = content
 
-const div = document.createElement('div')
-div.innerHTML = content
-document.body.appendChild(div)
-
-// @todo at least use querySelector
-const messagesContainer = document.getElementById('messages');
-const chatForm = document.getElementById('chat-form');
-const messageInput = document.getElementById('message-input');
-const systemContentInput = document.getElementById('system-content-input');
-const statusBox = document.getElementById('status-box');
-const progressBar = document.getElementById('progress-bar');
-const progressText = document.getElementById('progress-text');
-const voiceButton = document.getElementById('voice-button');
+const messagesContainer = chatdiv.querySelector('#messages')
+const chatForm = chatdiv.querySelector('#chat-form')
+const messageInput = chatdiv.querySelector('#message-input')
+const systemContentInput = chatdiv.querySelector('#system-content-input')
+const statusBox = chatdiv.querySelector('#status-box')
+const progressBar = chatdiv.querySelector('#progress-bar')
+const progressText = chatdiv.querySelector('#progress-text')
+const voiceButton = chatdiv.querySelector('#voice-button')
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-let status = 'loading'
+let status = 'loading' // ready, pausing, speaking, thinking, loading
 
-function setStatus(status,code=null) { // ready, speaking, thinking, loading
-	if(!code) code = status || "ready"
-	statusBox.className = `status-${code}`;
-	statusBox.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+function setStatus(text=null,style='ready') { 
+	if(!style) style = 'ready'
+	if(!text) text = style
+	statusBox.className = `status-${style}`;
+	statusBox.textContent = text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -167,7 +165,7 @@ function updateProgress(current, total) {
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-function addMessageToDisplay(sender, text) {
+function addTextToChatWindow(sender, text) {
 	const messageElement = document.createElement('div');
 	messageElement.textContent = `${sender}: ${text}`;
 	messagesContainer?.appendChild(messageElement);
@@ -176,38 +174,26 @@ function addMessageToDisplay(sender, text) {
 	}
 }
 
-// As a convenience for users please focus the message input when the page loads
 window.addEventListener('load', () => {
 	messageInput.focus()
 })
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-// A user can change preprompt, if so then write it back into the prompt
-
-const configure = () => {
+const setSystemPrompt = () => {
 	const configuration = systemContentInput.value
 	sys.resolve({llm:{configuration}})
 }
-systemContentInput.addEventListener('input',configure)
-configure()
+systemContentInput.addEventListener('input',setSystemPrompt)
+setSystemPrompt()
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-// a user can enable / disable voice
 let desired = true
-
-function voiceButton_set(text=null) {
-	if(text) {
-		voiceButton.innerHTML = text
-		return
-	}
-	voiceButton.innerHTML = desired ? "Click to disable voice" : "Click to enable voice"
-}
 
 voiceButton.onclick = () => {
 	desired = desired ? false : true
-	voiceButton_set()
+	voiceButton.innerHTML = desired ? "Click to disable voice" : "Click to enable voice"
 	sys.resolve({voice:{desired}})
 }
 voiceButton.onclick()
@@ -215,38 +201,39 @@ voiceButton.onclick()
 /////////////////////////////////////////////////////////////////////////////////////
 
 // a request counter that is incremented once per fresh user sentence submission
-let rcounter = 10000
+let rcounter = 1000
+
 // a breath counter that typically is 1 - signifying a reset of the response breath fragments
 let bcounter = 1
 
-function textinput_resolve(text,final) {
-	// advance the entire system request counter; which will abort any previous ongoing activity
-	rcounter += 10000
+function textInputResolve(text,think) {
+	// advance the entire system request counter
+	rcounter += 1000
 	bcounter = 1
+	// explicitly abort any previous ongoing activity
 	sys.resolve({
 		rcounter, bcounter,
 		stop:true
 	})
-	// tidy up any inbound content and send to llm for processing
-	if(text && text.length && final) {
-		addMessageToDisplay('You', text)
+	// if final then pass the human input to the llm to chew on
+	if(think && text && text.length) {
+		addTextToChatWindow('You', text)
+		rcounter += 1000
+		bcounter = 1
 		sys.resolve({
 			rcounter,bcounter,
 			llm:{content:text}
 		})
-		setStatus('thinking')
+		setStatus(null,'thinking')
 	} else {
-		setStatus('ready')
+		setStatus(null,'ready')		
 	}
-
-	// @todo it might be nice to detect the condition here more gracefully
-	voiceButton_set()
 }
 
 // Pass user requests to llm
 chatForm.addEventListener('submit', async (e) => {
 	e.preventDefault()
-	textinput_resolve(messageInput.value.trim(),true)
+	textInputResolve(messageInput.value.trim(),true)
 	messageInput.value = ''
 })
 
@@ -255,29 +242,19 @@ chatForm.addEventListener('submit', async (e) => {
 // Watch traffic
 const resolve = (blob) => {
 
-	// wire voice input into text panel also
+	// voice recognition has performed stt on human vocalizations; display as text
 	if(blob.voice && blob.voice.input) {
 		messageInput.value = blob.voice.input
 		if(blob.voice.final) {
-			textinput_resolve(blob.voice.input,false)
+			// for now don't actually send the request
+			textInputResolve(blob.voice.input,false)
 		}
 		return
 	}
 
-	// set voice enabled disabled button - @todo may not be needed
+	// set visible display of llm readiness as requested
 	if(blob.status) {
-		if(blob.status === 'speaking') {
-			voiceButton_set('Speaking disabled')
-		}
-		if(blob.status === 'ready') {
-			voiceButton_set('Speaking enabled')
-		}
-	}
-
-
-	// set visible display of llm readiness
-	if(blob.status) {
-		setStatus(blob.status)
+		setStatus(null,blob.status)
 		return
 	}
 
@@ -288,11 +265,7 @@ const resolve = (blob) => {
 	if(blob.llm.status) {
 		if(blob.llm.status.text) {
 			const text = blob.llm.status.text
-			if(blob.llm.status.progress >= 1.0 ) {
-				setStatus('ready')
-				return
-			}
-			setStatus(text,'loading')
+			blob.llm.status.progress >= 1.0 ? setStatus(null,'ready') : setStatus(text,'loading')
 			//const match = text.match(/Loading model from cache\[(\d+)\/(\d+)\]/);
 			//if (match) {
 			//	const [current, total] = match.slice(1).map(Number);
@@ -304,11 +277,12 @@ const resolve = (blob) => {
 
 	// llm has finished an breaths worth of talking; publish to display
 	if(blob.llm.breath) {
-		addMessageToDisplay('system',blob.llm.breath)
+		addTextToChatWindow('system',blob.llm.breath)
 	}
 
-	// llm has finished all talking for this round - do nothing for now
+	// llm has finished all talking for this round
 	if(blob.llm.final) {
+		setStatus(null,'ready')
 	}
 
 }

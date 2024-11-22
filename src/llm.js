@@ -31,7 +31,7 @@ const request = {
 let engine = null
 let ready = false
 
-// worker - as a string because vite struggles to deal with dynamically resolved imports
+// worker - as a string because dynamic imports are a hassle with rollup/vite
 const workerString = `
 import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
 const handler = new webllm.WebWorkerMLCEngineHandler();
@@ -52,12 +52,12 @@ async function load() {
 	sys.resolve({llm:{ready}})
 }
 
+// start fetching the llm right away
 load()
 
 
 // rcounter = request counter, increments once per player request to the llm
 // bcounter = breath counter, increments per breath fragment of a response
-
 let rcounter = 0
 let bcounter = 0
 
@@ -71,39 +71,7 @@ let bcounter = 0
 
 function resolve(blob) {
 
-	// stop everything?
-	if(blob.stop) {
-		if(!engine || !engine.interruptGenerate) return
-		engine.interruptGenerate()
-		return
-	}
-
-	// ignore non llm traffic
-	if(!blob.llm) return
-
-	// configuration
-	if(blob.llm && blob.llm.configuration) {
-		request.messages[0].content = blob.llm.configuration
-		console.log(request)
-		return
-	}
-
-	// otherwise ignore traffic that is not specifically a request to handle new content
-	if(!blob.llm.hasOwnProperty('content')) return
-
-	const content = blob.llm.content
-
-	// if the caller is asking to process a message but not ready then reply as such
-	if(!engine || !ready) {
-		if(content && content.length) {
-			sys.resolve({
-				llm:{breath:'...still loading',ready,final:true}
-			})
-		}
-		return
-	}
-
-	// ignore old traffic at least at the sentence level
+	// always update rcounter to abort old traffic
 	if(blob.rcounter) {
 		if(blob.rcounter <= rcounter) {
 			console.warn("llm ignoring old traffic",blob)
@@ -113,11 +81,37 @@ function resolve(blob) {
 		bcounter = blob.bcounter
 	}
 
-	// arguably could publish the fact that we are stopped... but it can be inferred
-	// sys.resolve({llm:{stop:true}})
+	// explicitly stop everything?
+	if(blob.stop) {
+		if(!engine || !engine.interruptGenerate) return
+		engine.interruptGenerate()
+		return
+	}
+
+	// ignore non llm traffic otherwise
+	if(!blob.llm) return
+
+	// configuration for system prompt
+	if(blob.llm && blob.llm.configuration) {
+		request.messages[0].content = blob.llm.configuration
+		return
+	}
+
+	// ignore traffic that is not specifically a request to handle new content requests
+	if(!blob.llm.hasOwnProperty('content')) return
+
+	const content = blob.llm.content
 
 	// ignore null messages; these can be passed on purpose to force stop llm
 	if(!content || !content.length) {
+		return
+	}
+
+	// if the caller is asking to process a message but not ready then reply as such
+	if(!engine || !ready) {
+		sys.resolve({
+			llm:{breath:'...still loading',ready,final:true}
+		})
 		return
 	}
 
@@ -153,7 +147,7 @@ function resolve(blob) {
 		}
 	}
 
-	// begin streaming support
+	// begin streaming support of llm text responses as breath chunks
 	engine.chat.completions.create(request).then(async (asyncChunkGenerator) => {
 
 		for await (const chunk of asyncChunkGenerator) {

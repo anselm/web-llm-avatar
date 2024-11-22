@@ -43,30 +43,40 @@ Goals that were accomplished here:
 
 ## Revision 3: Voice Input (ongoing)
 
-Voice based interaction. The human participant should be able to speak naturally and have the llm capture complete sentences which it should then translate to text locally, and then be able to respond intelligently. Specifically the human should be able to interrupt the llm.
+Voice based interaction. The human participant should be able to speak naturally and have the llm capture complete sentences which it should then translate to text locally, and then be able to respond intelligently. Specifically the human should be able to interrupt the llm (this is referred to as 'barge in' and requires a 'vad' - voice activity detector).
 
-Performing audio based interruption is hard because by default modern browsers hear themselves - if the browser is vocalizing through the speakers - it also hears that vocalization. We can ignore microphone input while the browser is speaking - but then we also fail to hear the participant interrupting.
+The built in voice support does not participate in audio echo cancelation - so the browser will hear itself talking and think that is human input.
 
 Approaches and workarounds:
 
-1) [TESTED] Turn off microphone while bot is speaking. This works "ok" but is annoying when the bot has a long sentence to utter.
+1) [TESTED] Turning off the microphone during speaking - tested - works "ok" but the lack of barge-in can be annoying.
 
-2) Stop talking button. This is probably needed in general.
+2) Hook up a barge-in detector while retaining the built in microphone (this may work well)
 
-3) Talk to speak button. This feels like a bad idea; disrupts voice flow? May test.
+3) [TESTED] Use a voice activity detector in general and use a web based whisper module - tested - is a bit slow.
 
-4) Micro-pause to enable microphone briefly to detect interruption. Test this.
+4) Have a 'stop talking' button? (not hands free)
 
-5) Semantic level analysis of heard voice to determine if self-vocalizations heard? Probably a dumb idea.
+5) Have a 'press to speak' button? (not hands free)
 
-6) [TESTED] Leave microphone on but employ echo cancellation using built in echo cancellation,. This works "ok" - it does seem to still hear itself. Currently the system is setup to stop the engine from speaking if it hears a potential interruption, and it is stopping too aggressively because it hears itself. See:
+6) Pause briefly in sentences to listen for barge in (not so strong as an idea)
+
+7) Semantic level analysis of voice to detect self-vocalizations (hmmm)
+
+8) Try just turning down the browser volume? (Tested and actually it works "ok")
+
+9) Falback to server side Voice Recognition? (I'd prefer not to do this because I want a no strings client)
+
+Other resources:
+
+- https://github.com/ricky0123/vad
+- https://picovoice.ai/blog/javascript-voice-activity-detection/ 
+- https://github.com/kdavis-mozilla/vad.js/
 
 - https://webrtc.googlesource.com/src/+/refs/heads/main/modules/audio_processing/aec3/
 - https://www.mathworks.com/help/audio/ug/acoustic-echo-cancellation-aec.html#
 - https://news.ycombinator.com/item?id=40918152
 - https://dev.to/fosteman/how-to-prevent-speaker-feedback-in-speech-transcription-using-web-audio-api-2da4
-
-I'm not 100% sure that the voice recognition participates in echo cancellation. May need testing either way. Otherwise there are third party stt services to try:
 
 - https://github.com/huggingface/transformers.js/tree/v3/examples/webgpu-whisper (works well)
 - https://huggingface.co/distil-whisper/distil-small.en
@@ -80,9 +90,6 @@ I'm not 100% sure that the voice recognition participates in echo cancellation. 
 - https://huggingface.co/spaces/Xenova/whisper-word-level-timestamps
 - https://www.reddit.com/r/LocalLLaMA/comments/1fvb83n/open_ais_new_whisper_turbo_model_runs_54_times/ ?
 
-7) Falback to server side Voice Recognition?
-
-This unfortunately ties an application to a server, which I find limiting. However the server can bring significant powers to bear on the problem, including improved audio filtering capabilities. Also browser loopback detection such as supported in browser using webrtc become available - and can be performed prior to sending audio to server.
 
 ## Revision 4: Animated Pupppet
 
@@ -132,5 +139,14 @@ Another way may be to turn on pre-filtering so that we know who emitters and con
 
 - an actual stop button might be nice
 - when you stop (by typing nothing and hitting return) it doesn't paint the right status or button state
+
+Does the microphone stream participate in the echo cancellation?
+
+1) start playing some voices
+2) also record 10 seconds of microphone input at the same time
+3) play that back and just listen to it - does it sound cancelled?
+
+
+
 
 
