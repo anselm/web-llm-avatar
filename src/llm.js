@@ -49,7 +49,7 @@ async function load() {
 		}},
 	)
 	ready = true
-	sys.resolve({llm:{ready}})
+	sys({llm:{ready}})
 }
 
 // start fetching the llm right away
@@ -109,7 +109,7 @@ function resolve(blob) {
 
 	// if the caller is asking to process a message but not ready then reply as such
 	if(!engine || !ready) {
-		sys.resolve({
+		sys({
 			llm:{breath:'...still loading',ready,final:true}
 		})
 		return
@@ -124,7 +124,7 @@ function resolve(blob) {
 		if(!fragment || !fragment.length || finished) {
 			if(breath.length) {
 				bcounter++
-				sys.resolve({
+				sys({
 					rcounter,bcounter,
 					llm:{breath,ready,final:true}
 				})
@@ -139,7 +139,7 @@ function resolve(blob) {
 			const i = match[0].length
 			breath += fragment.slice(0,i)
 			bcounter++
-			sys.resolve({
+			sys({
 				rcounter,bcounter,
 				llm:{breath,ready,final:false}
 			})
@@ -159,11 +159,11 @@ function resolve(blob) {
 
 		const final = await engine.getMessage()
 		request.messages.push( { role: "assistant", content:final } )
-		sys.resolve({llm:{ready,final}})
+		sys({llm:{ready,final}})
 
 	})
 
 }
 
 // register this listener with the pubsub backbone
-sys.resolve({resolve})
+sys({resolve})

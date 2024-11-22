@@ -285,7 +285,7 @@ async function startVAD() {
 				// send a barge in event
 				sys({voice:{
 					text:"",
-					timestamp:performance.now(),
+					timestamp: 0, //performance.now(),
 					confidence:probs.isSpeech,
 					final:false,
 					bargein:true,
@@ -299,7 +299,7 @@ async function startVAD() {
 				// send final barge in - as a hint that utterance is being digested by stt
 				sys({voice:{
 					text:"",
-					timestamp:performance.now(),
+					timestamp: 0, // performance.now(),
 					confidence:1,
 					final:true,
 					bargein:true,
