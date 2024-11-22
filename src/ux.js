@@ -243,18 +243,27 @@ chatForm.addEventListener('submit', async (e) => {
 const resolve = (blob) => {
 
 	// voice recognition has performed stt on human vocalizations; display as text
-	if(blob.voice && blob.voice.input) {
+	if(blob.voice && blob.voice.hasOwnProperty('input')) {
 		messageInput.value = blob.voice.input
 		if(blob.voice.final) {
-			// for now don't actually send the request
-			textInputResolve(blob.voice.input,false)
+			textInputResolve(blob.voice.input,true)
+		} else {
+
+			// if the human is talking then stop the bot from talking now
+			rcounter += 1000
+			bcounter = 1
+			sys.resolve({
+				rcounter, bcounter,
+				stop:true
+			})
+
 		}
 		return
 	}
 
 	// set visible display of llm readiness as requested
 	if(blob.status) {
-		setStatus(null,blob.status)
+		setStatus('thinking',blob.status)
 		return
 	}
 

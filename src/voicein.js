@@ -269,7 +269,11 @@ async function startVAD() {
 			minSpeechFrames: 5,
 			preSpeechPadFrames: 10,
 			onFrameProcessed: (probs) => {
-				if(probs.isSpeech > 0.9)
+				if(probs.isSpeech < 0.9) return
+				// let's try force stop / barge in
+				sys.resolve({voice:{input:"", timestamp:performance.now(), confidence:1, final:false}})
+
+				// let's also report on voice status for user display
 				sys.resolve({status:`voice detected ${probs.isSpeech}`})
 			},
 			onSpeechEnd: (audio) => {
