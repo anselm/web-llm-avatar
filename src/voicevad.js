@@ -233,7 +233,7 @@ worker.addEventListener("message", (event) => {
 	if(!event.data.status !== 'update' && event.data.status !== 'complete') {
 		sys({voice:{
 			text:"",
-			timestamp : peformance.now(),
+			timestamp : 0, // peformance.now(),
 			confidence : 1,
 			spoken:true,
 			final:false,
