@@ -24,7 +24,10 @@ const audio = {
 		}
 
 		// return if nothing to do
-		if(!this.audioqueue.length) return
+		if(!this.audioqueue.length) {
+			sys.resolve({audioqueue:'done'})
+			return
+		}
 
 		// get next job
 		blob = this.audioqueue[0]
@@ -98,5 +101,5 @@ function resolve(blob) {
 	}
 }
 
-sys.resolve({resolve})
+sys({resolve})
 

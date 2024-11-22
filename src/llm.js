@@ -45,7 +45,7 @@ async function load() {
 		worker,
 		selectedModel,
 		{ initProgressCallback: (status) => {
-			sys.resolve({llm:{ready,status}})
+			sys({llm:{ready,status}})
 		}},
 	)
 	ready = true

@@ -199,6 +199,8 @@ voiceButton.onclick = () => {
 voiceButton.onclick()
 
 /////////////////////////////////////////////////////////////////////////////////////
+// text pre-reasoning support
+/////////////////////////////////////////////////////////////////////////////////////
 
 // a request counter that is incremented once per fresh user sentence submission
 let rcounter = 1000
@@ -206,35 +208,63 @@ let rcounter = 1000
 // a breath counter that typically is 1 - signifying a reset of the response breath fragments
 let bcounter = 1
 
-function textInputResolve(text,think) {
-	// advance the entire system request counter
-	rcounter += 1000
-	bcounter = 1
-	// explicitly abort any previous ongoing activity
-	sys.resolve({
-		rcounter, bcounter,
-		stop:true
-	})
-	// if final then pass the human input to the llm to chew on
-	if(think && text && text.length) {
-		addTextToChatWindow('You', text)
+function textInputResolve(args) {
+
+	// peel off text if any
+	const text = args.text ? args.text.trim() : ""
+
+	// reset the text input dialog if final
+	if(args.final) {
+		messageInput.value = ''
+	}
+
+	// for spoken text, go ahead and write it to the input dialog if not final
+	else if(args.spoken) {
+		messageInput.value = text
+	}
+
+
+	// stop making noises locally if the human is speaking
+	if(args.bargein) {
 		rcounter += 1000
 		bcounter = 1
-		sys.resolve({
-			rcounter,bcounter,
-			llm:{content:text}
+		sys({
+			rcounter, bcounter,
+			stop:true
 		})
-		setStatus(null,'thinking')
-	} else {
-		setStatus(null,'ready')		
 	}
+
+	// Although pre-reasoning events were received they are not final
+	if(!args.final || !text || !text.length) {
+		setStatus(args.comment ? args.comment : 'Responding','thinking')
+		return
+	}
+
+	// a crude pre-classifier to allow stopping or abort
+	if(text.includes("stop")) {
+		setStatus('Stopped!','loading')
+		return
+	}
+
+	addTextToChatWindow('You', text)
+	rcounter += 1000
+	bcounter = 1
+	sys({
+		rcounter,bcounter,
+		llm:{content:text}
+	})
+	setStatus('Thinking','thinking')
 }
 
 // Pass user requests to llm
 chatForm.addEventListener('submit', async (e) => {
 	e.preventDefault()
-	textInputResolve(messageInput.value.trim(),true)
-	messageInput.value = ''
+	textInputResolve({
+		text:messageInput.value,
+		confidence:1,
+		spoken:false,
+		final:true
+	})
 })
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -242,28 +272,14 @@ chatForm.addEventListener('submit', async (e) => {
 // Watch traffic
 const resolve = (blob) => {
 
-	// voice recognition has performed stt on human vocalizations; display as text
-	if(blob.voice && blob.voice.hasOwnProperty('input')) {
-		messageInput.value = blob.voice.input
-		if(blob.voice.final) {
-			textInputResolve(blob.voice.input,true)
-		} else {
-
-			// if the human is talking then stop the bot from talking now
-			rcounter += 1000
-			bcounter = 1
-			sys.resolve({
-				rcounter, bcounter,
-				stop:true
-			})
-
-		}
-		return
+	// pipe voice to text to text reasoner
+	if(blob.voice) {
+		textInputResolve(blob.voice)
 	}
 
-	// set visible display of llm readiness as requested
-	if(blob.status) {
-		setStatus('thinking',blob.status)
+	// slight hack - voice output queue is done
+	if(blob.audioqueue && blob.audioqueue === 'done') {
+		setStatus('Ready')
 		return
 	}
 
@@ -291,10 +307,10 @@ const resolve = (blob) => {
 
 	// llm has finished all talking for this round
 	if(blob.llm.final) {
-		setStatus(null,'ready')
+		setStatus('Ready')
 	}
 
 }
 
-sys.resolve({resolve})
+sys({resolve})
 

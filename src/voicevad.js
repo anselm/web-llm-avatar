@@ -229,20 +229,31 @@ const worker = new Worker(URL.createObjectURL(new Blob([xenovaWorker],{type:'tex
 //const worker = new Worker(new URL("./stt-xenova-worker.js", import.meta.url), { type: "module" });
 
 worker.addEventListener("message", (event) => {
-	const confidence = 1
-	const timestamp = performance.now()
-	if(event.data && event.data.status === 'update') {
-		const input = event.data.data[0]
-		const blob = {voice:{input, timestamp, confidence, final:false}}
-		console.log('...voice update',input)
-		sys.resolve(blob)
+	if(!event.data) return
+	if(!event.data.status !== 'update' && event.data.status !== 'complete') {
+		sys({voice:{
+			text:"",
+			timestamp : peformance.now(),
+			confidence : 1,
+			spoken:true,
+			final:false,
+			comment: JSON.toString(event.data)
+		}})
+		return
 	}
-	if(event.data && event.data.status === 'complete') {
-		const input = event.data.data.text
-		const blob = {voice:{input, timestamp, confidence, final:true}}
-		console.log('...voice final',input)
-		sys.resolve(blob)
-	}
+
+	const final = event.data.status === 'complete'
+	const text = final ? event.data.data.text : event.data.data[0]
+
+	sys({voice:{
+		text,
+		timestamp : 0, // performance.now() is undefined here???
+		confidence : 1,
+		spoken:true,
+		final,
+		comment: final ? "User voice input final" : "User voice input processing"
+	}})
+
 })
 
 async function transcribe(audio) {
@@ -269,29 +280,34 @@ async function startVAD() {
 			minSpeechFrames: 5,
 			preSpeechPadFrames: 10,
 			onFrameProcessed: (probs) => {
-				if(probs.isSpeech < 0.9) return
-				// let's try force stop / barge in
-				sys.resolve({voice:{input:"", timestamp:performance.now(), confidence:1, final:false}})
+				if(probs.isSpeech < 0.5) return
 
-				// let's also report on voice status for user display
-				sys.resolve({status:`voice detected ${probs.isSpeech}`})
+				// send a barge in event
+				sys({voice:{
+					text:"",
+					timestamp:performance.now(),
+					confidence:probs.isSpeech,
+					final:false,
+					bargein:true,
+					spoken:true,
+					comment:"User vocalizations heard"
+				}})
+
 			},
 			onSpeechEnd: (audio) => {
-				sys.resolve({status:'voice transcribing'})
+
+				// send final barge in - as a hint that utterance is being digested by stt
+				sys({voice:{
+					text:"",
+					timestamp:performance.now(),
+					confidence:1,
+					final:true,
+					bargein:true,
+					spoken:true,
+					comment:"Transcribing user voice input"
+				}})
+
 				transcribe(audio)
-
-/*
-				const data = event.results[i]
-				const input = data[0].transcript
-				const confidence = data[0].confidence
-				const final = data.isFinal
-				const blob = {voice:{input, timestamp, confidence, final}}
-				sys.resolve(blob)
-*/
-
-//				transcribe(arr)
-
-
 			},
 		})
 		window.myvad = myvad

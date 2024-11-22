@@ -99,54 +99,14 @@ The primary challenge of an animated puppet face is to map audio to facial perfo
 
 2) Other options here are to manufacture our own neural network that maps spectographic analysis of audio to visemes directly.
 
-# Pub Sub
+# Pub Sub and overall flow
 
-I'm exploring using a pubsub architecture to decouple components. These are the events:
+I'm exploring using a pubsub service to decouple components. This is the overall flow:
 
-1) UX publishes "voice recognition enabled" or "voice recognition disabled" events ... observed by voice recognition.
+1) As the user makes vocal utterances the VAD detects them and I publish to sys(). Also completed utterances are sent for transcription to the STT. In the UX widget for now I notice these "voice" events and I will forward the final one onto the LLM. Also the UX is updated to reflect intermediate states. I go out of my way to abort any previous activity whenever I get fresh speech input.
 
-2) UX publishes input text from the user ... observed by LLM.
+2) The LLM in turn publishes completed reasoning segments (breath sized) and the ux also catches these and paints them. The TTS catches these too and starts uttering them. I go out of my way to send a message when TTS is out of work.
 
-3) UX publishes a 'stop!' event ... observed by LLM and TTS.
+# TODO
 
-4) LLM publishes a general status string ... observed by UX.
-
-5) LLM publishes breath segments ... observed by UX and TTS.
-
-6) TTS publishes if using audio speaker or not ... observed by the voice recognition.
-
-7) Voice recognition publishes input voice ... observed by the ux who forwards to llm.
-
-Can this pubsub pattern be made more visible or clear?
-
-One way would be to require services to have exposed handles, and then to wire handles up explicitly in one place. This is a form of pseudo function late binding which while decoupling static imports from each other, still couples them at runtime in a way that may not be a huge win?
-
-const wires = [
-  [ "/ux/input", "llm/input" ],
-  [ "/ux/enabled", "voice/enabled" ],
-  [ "/ux/disabled", "voice/disabled" ],
-  [ "/ux/stop", "llm/stop" ],
-  [ "/llm/status", "ux/status" ],
-  [ "/llm/breath", "ux/conversation" ],
-  [ "/llm/breath", "tts/input"],
-  [ "/tts/speaking", "recog/disabled"],
-  [ "recog/text", "ux/input" ]
-]
-
-Another way may be to turn on pre-filtering so that we know who emitters and consumers are more clearly, and then a debug display of extant wires can be produced at runtime. This could help with introspection; basically creating a kind of debugging layer for pubsub - and it would produce a display similar to the above.
-
-## Issues
-
-- an actual stop button might be nice
-- when you stop (by typing nothing and hitting return) it doesn't paint the right status or button state
-
-Does the microphone stream participate in the echo cancellation?
-
-1) start playing some voices
-2) also record 10 seconds of microphone input at the same time
-3) play that back and just listen to it - does it sound cancelled?
-
-
-
-
-
+- try using built in speech detection with a VAD - it may work well

@@ -87,7 +87,7 @@ if(confidence > 0.8) {
 console.log("... INTERRUPTION DETECTED: ",input,confidence,final)
 rcounter++
 this.stop()
-sys.resolve({rcounter,bcounter,stop:true})
+sys({rcounter,bcounter,stop:true})
 }
 }
 }
@@ -96,11 +96,11 @@ sys.resolve({rcounter,bcounter,stop:true})
 			// throw away everything except the first event because it is just too confusing otherwise
 			for (let i = event.resultIndex; i < 1 && i < event.results.length; ++i) {
 				const data = event.results[i]
-				const input = data[0].transcript
+				const text = data[0].transcript
 				const confidence = data[0].confidence
 				const final = data.isFinal
-				const blob = {voice:{input, timestamp, confidence, final}}
-				sys.resolve(blob)
+				const blob = {voice:{text, timestamp, confidence, final}}
+				sys(blob)
 				if(final) {
 					this.kick()
 				}
@@ -185,5 +185,5 @@ function resolve(blob) {
 }
 
 // listen to the pubsub backbone for work to do
-sys.resolve({resolve})
+sys({resolve})
 
