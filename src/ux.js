@@ -193,7 +193,7 @@ let desired = true
 
 voiceButton.onclick = () => {
 	desired = desired ? false : true
-	voiceButton.innerHTML = desired ? "Click to disable voice" : "Click to enable voice"
+	voiceButton.innerHTML = desired ? "Using Built In STT" : "Using Whisper STT"
 	sys.resolve({voice:{desired}})
 }
 voiceButton.onclick()
@@ -210,21 +210,7 @@ let bcounter = 1
 
 function textInputResolve(args) {
 
-	// peel off text if any
-	const text = args.text ? args.text.trim() : ""
-
-	// reset the text input dialog if final
-	if(args.final) {
-		messageInput.value = ''
-	}
-
-	// for spoken text, go ahead and write it to the input dialog if not final
-	else if(args.spoken) {
-		messageInput.value = text
-	}
-
-
-	// stop making noises locally if the human is speaking
+	// barge-in can only occur on voice input prior to transcribe()
 	if(args.bargein) {
 		rcounter += 1000
 		bcounter = 1
@@ -232,20 +218,41 @@ function textInputResolve(args) {
 			rcounter, bcounter,
 			stop:true
 		})
-	}
-
-	// Although pre-reasoning events were received they are not final
-	if(!args.final || !text || !text.length) {
-		setStatus(args.comment ? args.comment : 'Responding','thinking')
+		setStatus(args.comment ? args.comment : 'Listening','thinking')
 		return
 	}
 
-	// a crude pre-classifier to allow stopping or abort
-	if(text.includes("stop")) {
+	// get text
+	const text = args.text ? args.text.trim() : ""
+
+	// on voice there can be intermediate results
+	if(!args.final) {
+
+		// show accumulated spoken text in the input dialog
+		if(args.spoken) {
+			messageInput.value = text
+		}
+
+		setStatus(args.comment ? args.comment : 'Listening','thinking')
+		return
+	}
+
+	// if no text
+	if(!text || !text.length) {
+		setStatus('No Text')
+		return
+	}
+
+	// crude preclassifier for verbal stop requests
+	if(args.spoken && text.includes("stop")) {
+		messageInput.value = text
 		setStatus('Stopped!','loading')
 		return
 	}
 
+	console.log("****************",args)
+
+	// final
 	addTextToChatWindow('You', text)
 	rcounter += 1000
 	bcounter = 1
@@ -253,6 +260,7 @@ function textInputResolve(args) {
 		rcounter,bcounter,
 		llm:{content:text}
 	})
+	messageInput.value = ''
 	setStatus('Thinking','thinking')
 }
 
@@ -272,15 +280,15 @@ chatForm.addEventListener('submit', async (e) => {
 // Watch traffic
 const resolve = (blob) => {
 
+	// it is useful to know when the output is truly done
+	if(blob.speakers_done && blob.speakers_done.final) {
+		setStatus('Ready')
+		return
+	}
+
 	// pipe voice to text to text reasoner
 	if(blob.voice) {
 		textInputResolve(blob.voice)
-	}
-
-	// slight hack - voice output queue is done
-	if(blob.audioqueue && blob.audioqueue === 'done') {
-		setStatus('Ready')
-		return
 	}
 
 	// ignore traffic not from llm after this line

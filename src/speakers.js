@@ -2,7 +2,7 @@
 let rcounter = 0
 let bcounter = 0
 
-const audio = {
+const speakers = {
 
 	context: null,
 	audioqueue: [],
@@ -25,7 +25,6 @@ const audio = {
 
 		// return if nothing to do
 		if(!this.audioqueue.length) {
-			sys.resolve({audioqueue:'done'})
 			return
 		}
 
@@ -36,32 +35,36 @@ const audio = {
 			return
 		}
 
-		const ended = (results) => {
-
-			// sanity check
-			if(!results || !results.target) {
-				console.error("... voice issue with sound end")
-				return
-			}
-
-			// stop the sound - remove it
-			if(this.sound) {
-				this.sound.disconnect()
-				this.sound = null
-			}
-
-			// clear last job
-			this.audioqueue.shift()
-
-			// revisit queue
-			this.queue()
-		}
-
-		this.context.decodeAudioData(blob.voice.audio, (audioBuffer) => {
+		// play one sound at a time
+		this.context.decodeAudioData(blob.speakers.audio, (audioBuffer) => {
 			const sound = this.sound = this.context.createBufferSource()
 			sound.buffer = audioBuffer
 			sound.connect(this.context.destination)
-			sound.addEventListener('ended', ended)
+			sound.addEventListener('ended', (results) => {
+
+				// stop the sound - remove it
+				if(this.sound) {
+					this.sound.disconnect()
+					this.sound = null
+				}
+
+				// publish that this is done - other observers want to know when truly done talking
+				sys({
+					rcounter: blob.rcounter,
+					bcounter: blob.bcounter,
+					speakers_done: {
+						performed: true,
+						final: blob.speakers.final
+					}
+				})
+
+				// clear prev job
+				this.audioqueue.shift()
+
+				// revisit queue
+				this.queue()
+			})
+
 			sound.start()
 		})
 	},
@@ -75,7 +78,7 @@ const audio = {
 	}
 }
 
-audio.start()
+speakers.start()
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // watch pubsub
@@ -92,12 +95,12 @@ function resolve(blob) {
 
 	// an explicit optional stop to stop making audio sounds on speaker
 	if(blob.stop) {
-		audio.stop()
+		speakers.stop()
 	}
 
 	// push audio output to queue to play to speaker
-	if(blob.voice && blob.voice.audio) {
-		audio.queue(blob)
+	if(blob.speakers && blob.speakers.audio) {
+		speakers.queue(blob)
 	}
 }
 

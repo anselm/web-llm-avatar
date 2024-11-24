@@ -272,6 +272,8 @@ async function transcribe(audio) {
 // has built in echo cancellation
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+let block_transcribe = false
+
 async function startVAD() {
 
 	try {
@@ -280,7 +282,7 @@ async function startVAD() {
 			minSpeechFrames: 5,
 			preSpeechPadFrames: 10,
 			onFrameProcessed: (probs) => {
-				if(probs.isSpeech < 0.5) return
+				if(probs.isSpeech < 0.9) return
 
 				// send a barge in event
 				sys({voice:{
@@ -304,10 +306,10 @@ async function startVAD() {
 					final:true,
 					bargein:true,
 					spoken:true,
-					comment:"Transcribing user voice input"
+					comment:"User full sentence heard"
 				}})
 
-				transcribe(audio)
+                if(!block_transcribe) transcribe(audio)
 			},
 		})
 		window.myvad = myvad
@@ -319,3 +321,9 @@ async function startVAD() {
 }
 
 startVAD()
+
+// allow or disallow system stt
+const resolve = (blob) => {
+    if(blob.voice && blob.voice.desired) block_transcribe = blob.voice.desired
+}
+sys({resolve})

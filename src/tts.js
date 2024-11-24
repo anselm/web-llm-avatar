@@ -14,8 +14,8 @@ const voiceId = 'en_US-hfc_female-medium'
 const ttsString = `
 import * as tts from 'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm'
 self.addEventListener('message', (e) => {
-	if(!e || !e.data || !e.data.voice || !e.data.voice.text) return
-	tts.predict({text:e.data.voice.text,voiceId: 'en_US-hfc_female-medium'}).then(audio => {
+	if(!e || !e.data || !e.data.speakers || !e.data.speakers.text) return
+	tts.predict({text:e.data.speakers.text,voiceId: 'en_US-hfc_female-medium'}).then(audio => {
 		console.log("tts got audio",audio)
 		new Promise((resolve, reject) => {
 			const reader = new FileReader()
@@ -24,7 +24,7 @@ self.addEventListener('message', (e) => {
 			reader.readAsArrayBuffer(audio)
 		}).then(audio => {
 			console.log("tts got audio 2",audio)
-			e.data.voice.audio = audio
+			e.data.speakers.audio = audio
 			self.postMessage(e.data)			
 		})
 	})
@@ -109,12 +109,14 @@ const ttsqueue_helper = async (blob=null) => {
 		return
 	}
 
+	const final = blob.llm.final
+
 	worker_tts.onmessage = async (event) => {
-		if(!event.data.voice.audio || event.data.rcounter < rcounter) {
+		if(!event.data.speakers.audio || event.data.rcounter < rcounter) {
 			console.log("... tts noticed an old request... abandoning",event.data)
 			return
 		}
-		sys.resolve(event.data)
+		sys(event.data)
 		ttsqueue.shift()
 		ttsqueue_helper()
 	}
@@ -122,8 +124,9 @@ const ttsqueue_helper = async (blob=null) => {
 	const data = {
 		rcounter: blob.rcounter,
 		bcounter: blob.bcounter,
-		voice: {
-			text
+		speakers: {
+			text,
+			final
 		}
 	}
 
@@ -152,5 +155,5 @@ function resolve(blob) {
 }
 
 // listen to the pubsub backbone for work to do
-sys.resolve({resolve})
+sys({resolve})
 

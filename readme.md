@@ -49,23 +49,16 @@ The built in voice support does not participate in audio echo cancelation - so t
 
 Approaches and workarounds:
 
-1) [TESTED] Turning off the microphone during speaking - tested - works "ok" but the lack of barge-in can be annoying.
-
-2) Hook up a barge-in detector while retaining the built in microphone (this may work well)
-
-3) [TESTED] Use a voice activity detector in general and use a web based whisper module - tested - is a bit slow.
-
-4) Have a 'stop talking' button? (not hands free)
-
-5) Have a 'press to speak' button? (not hands free)
-
-6) Pause briefly in sentences to listen for barge in (not so strong as an idea)
-
-7) Semantic level analysis of voice to detect self-vocalizations (hmmm)
-
-8) Try just turning down the browser volume? (Tested and actually it works "ok")
-
-9) Falback to server side Voice Recognition? (I'd prefer not to do this because I want a no strings client)
+- [TESTED] Turning off the microphone during speaking - tested - works "ok" but the lack of barge-in can be annoying.
+- [TESTED] Hook up a barge-in detector while using built in STT. Not great results, built in STT is pretty buggy.
+- [TESTED] Use a voice activity detector in general and use a web based whisper module. Works, is a bit sluggish.
+- Provide more visual feedback cues on VAD (would help)
+- Have a 'stop talking' button? (not hands free)
+- Have a 'press to speak' button? (not hands free)
+- Pause briefly in sentences to listen for barge in (not so strong as an idea)
+- Semantic level analysis of voice to detect self-vocalizations (hmmm)
+- Try just turning down the browser volume? (Tested and actually it works "ok")
+- Fallback to server side Voice Recognition? (I'd prefer not to do this because I want a no strings client)
 
 Other resources:
 
