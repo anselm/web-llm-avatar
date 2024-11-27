@@ -1,15 +1,19 @@
 {
   "name": "web-llm-avatar",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "description": "open source testbed using off the shelf parts to exercise a conversational interface to llm with voice activity detection and barge-in support and later viseme driven face puppet rigs",
+  "version": "1.0.5",
   "homepage": "https://anselm.github.io/web-llm-avatar/",
+  "keywords": [ "web-llm", "ai", "voice", "chatbot", "viseme", "audio2face" ],
+  "author": "anselm",
+  "license": "ISC",
+  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "dev": "tiny-server",
+    "unused dev": "vite",
+    "unused build": "tsc && vite build",
+    "unused preview": "vite preview",
+    "unused predeploy": "npm run build",
+    "unused deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "gh-pages": "^6.2.0",
@@ -17,6 +21,6 @@
     "vite": "^5.4.10"
   },
   "dependencies": {
-    "orbital-sys": "^1.0.1"
+    "orbital-sys": "^1.0.5"
   }
 }

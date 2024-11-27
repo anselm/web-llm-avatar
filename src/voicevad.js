@@ -230,20 +230,20 @@ const worker = new Worker(URL.createObjectURL(new Blob([xenovaWorker],{type:'tex
 
 worker.addEventListener("message", (event) => {
 	if(!event.data) return
-	if(!event.data.status !== 'update' && event.data.status !== 'complete') {
-		sys({voice:{
-			text:"",
-			timestamp : 0, // peformance.now(),
-			confidence : 1,
-			spoken:true,
-			final:false,
-			comment: JSON.toString(event.data)
-		}})
-		return
-	}
+    switch(event.data.status) {
+    default:
+    case 'initiate':
+    case 'download':
+    case 'progress':
+    case 'done':
+        return
+    case 'update':
+    case 'complete':
+    }
 
 	const final = event.data.status === 'complete'
 	const text = final ? event.data.data.text : event.data.data[0]
+    const comment = final ? `STT final: ${text}` : `STT in-progress: ${text}`
 
 	sys({voice:{
 		text,
@@ -251,7 +251,7 @@ worker.addEventListener("message", (event) => {
 		confidence : 1,
 		spoken:true,
 		final,
-		comment: final ? "User voice input final" : "User voice input processing"
+        comment
 	}})
 
 })
@@ -273,6 +273,7 @@ async function transcribe(audio) {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 let block_transcribe = false
+let counter = 0
 
 async function startVAD() {
 
@@ -292,7 +293,7 @@ async function startVAD() {
 					final:false,
 					bargein:true,
 					spoken:true,
-					comment:"User vocalizations heard"
+					comment:`User vocalization ${++counter} heard`
 				}})
 
 			},
@@ -308,6 +309,7 @@ async function startVAD() {
 					spoken:true,
 					comment:"User full sentence heard"
 				}})
+                counter = 0
 
                 if(!block_transcribe) transcribe(audio)
 			},

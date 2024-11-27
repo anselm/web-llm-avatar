@@ -52,8 +52,7 @@ h1 {
 	color: #fff;
 }
 
-
-#system-content-container, #chat-container {
+#system-content-container, #chat-container, #about-container {
 	background-color: #fff;
 	border-radius: 8px;
 	padding: 20px;
@@ -103,6 +102,15 @@ button:hover {
 }
 </style>
 
+<div id='about-container'>
+<h1>Web llm avatar demo</h1>
+<p>See <a href='https://github.com/anselm/web-llm-avatar'>web-llm-avatar</a> for more details. Things you can do here include:
+<ul>
+<li>Try speaking and then interrupting the bot by saying 'stop!'</li>
+<li>Say 'say something' to repeat your own utterance</li>
+</p>
+</div>
+
 <div id="status-box" class="status-loading">Loading...</div>
 
 <div id="system-content-container">
@@ -116,7 +124,8 @@ button:hover {
 		<input type="text" id="message-input" placeholder="Type your message..." autofocus>
 		<button type="submit">Send</button>
 	</form>
-	<button id='voice-button'>Click to enable Voice Input</button>
+	<!-- since built in voice is so poor lets turn off the button for now -->
+	<button style="display:none" id='voice-button'>Click to enable Voice Input</button>
 </div>
 `
 
@@ -315,7 +324,7 @@ const resolve = (blob) => {
 
 	// llm has finished all talking for this round
 	if(blob.llm.final) {
-		setStatus('Ready')
+		setStatus('Done Thinking - now Speaking','thinking')
 	}
 
 }

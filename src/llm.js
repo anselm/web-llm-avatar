@@ -38,18 +38,39 @@ const handler = new webllm.WebWorkerMLCEngineHandler();
 self.onmessage = (msg) => { handler.onmessage(msg); };
 `
 
-// fetch the llm once
 async function load() {
-	const worker = new Worker(URL.createObjectURL(new Blob([workerString],{type:'text/javascript'})),{type:'module'})
-	engine = await webllm.CreateWebWorkerMLCEngine(
-		worker,
-		selectedModel,
-		{ initProgressCallback: (status) => {
+
+	try {
+		console.log("llm - worker loading")
+
+		const initProgressCallback = (status) => {
+			console.log("llm - worker loading status",status)
 			sys({llm:{ready,status}})
-		}},
-	)
-	ready = true
-	sys({llm:{ready}})
+		}
+
+		const completed = (_engine) => {
+			console.log("llm - worker completed")
+			engine = _engine
+			ready = true
+			sys({llm:{ready}})
+		}
+
+		// service workers seem to be starved of cpu/gpu
+		const USE_SERVICE_WORKER = false
+
+		if(USE_SERVICE_WORKER) {
+			navigator.serviceWorker.register("/sw.js",{type:'module'}).then( registration => {
+				console.log('llm - service worker message',registration)
+			})
+			webllm.CreateServiceWorkerMLCEngine(selectedModel,{initProgressCallback}).then(completed)
+		} else {
+			const worker = new Worker(URL.createObjectURL(new Blob([workerString],{type:'text/javascript'})),{type:'module'})
+			webllm.CreateWebWorkerMLCEngine(worker,selectedModel,{initProgressCallback}).then(completed)
+		}
+
+	} catch(err) {
+		console.error("llm - worker fetch error",err)
+	}
 }
 
 // start fetching the llm right away
@@ -104,6 +125,13 @@ function resolve(blob) {
 
 	// ignore null messages; these can be passed on purpose to force stop llm
 	if(!content || !content.length) {
+		return
+	}
+
+	// intercept 'say' and say it
+	if(content.startsWith('say ') && content.length > 10) {
+		const breath = content.substring(4)
+		sys({llm:{breath,ready,final:true}})
 		return
 	}
 
