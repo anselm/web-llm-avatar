@@ -1,31 +1,24 @@
 
-//
-// config - @todo may expose to outside world
-//
+const uuid = 'tts-entity'
 
 const voiceId = 'en_US-hfc_female-medium'
 
 //
 // import tts worker right now
-//
 // declare worker as a string and fetch wasm from cdn due to vites import map failing on dynamic imports
 //
 
 const ttsString = `
 import * as tts from 'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm'
 self.addEventListener('message', (e) => {
-	if(!e || !e.data || !e.data.speakers || !e.data.speakers.text) return
-	tts.predict({text:e.data.speakers.text,voiceId: 'en_US-hfc_female-medium'}).then(audio => {
-		console.log("tts got audio",audio)
+	tts.predict({text:e.data,voiceId: 'en_US-hfc_female-medium'}).then(audio => {
 		new Promise((resolve, reject) => {
 			const reader = new FileReader()
 			reader.onload = () => resolve(reader.result)
 			reader.onerror = () => reject(reader.error)
 			reader.readAsArrayBuffer(audio)
 		}).then(audio => {
-			console.log("tts got audio 2",audio)
-			e.data.speakers.audio = audio
-			self.postMessage(e.data)			
+			self.postMessage(audio)
 		})
 	})
 })
@@ -70,90 +63,61 @@ function fixDollars(sentence) {
 	});
 }
 
-let ttsqueue = []
-let rcounter = 0
-let bcounter = 0
-
-//
-// tts queue; process only one tts request at a time
-//
-
-const ttsqueue_helper = async (blob=null) => {
-
-	// explicit request to convert text to audio - push onto queue and return if queue is not empty
-	if(blob) {
-		ttsqueue.push(blob)
-		if(ttsqueue.length !== 1) return
-	}
-
-	// implicit loop - check queue and return if empty
-	if(!ttsqueue.length) return
-
-	// peel off of queue and sanity check age
-	blob = ttsqueue[0]
-
-	// ignore old requests
-	if(blob.rcounter && blob.rcounter < rcounter) {
-		console.warn("... tts noticed an old request... abandoning",blob)
-		ttsqueue.shift()
-		ttsqueue_helper()
-		return
-	}
-
-	// sanitize text for tts and stuff it back into the blob for scope
-	let text = fixDollars(blob.llm.breath)
-	text = text.replace(/[*<>#%-]/g, "")
-	if(!text.length) {
-		ttsqueue.shift()
-		ttsqueue_helper()
-		return
-	}
-
-	const final = blob.llm.final
-
-	worker_tts.onmessage = async (event) => {
-		if(!event.data.speakers.audio || event.data.rcounter < rcounter) {
-			console.log("... tts noticed an old request... abandoning",event.data)
-			return
-		}
-		sys(event.data)
-		ttsqueue.shift()
-		ttsqueue_helper()
-	}
-
-	const data = {
-		rcounter: blob.rcounter,
-		bcounter: blob.bcounter,
-		speakers: {
-			text,
-			final
-		}
-	}
-
-	worker_tts.postMessage(data)
+function chew(text) {
+	if(!text || !text.length) return null
+	return new Promise((happy,sad)=>{
+		worker_tts.onmessage = async (event) => { happy(event) }
+		worker_tts.postMessage(text)
+	})
 }
 
-// watch requests flying past on the pubsub backbone
-function resolve(blob) {
-
-	// request counter will flush previous requests
-	if(blob.rcounter) {
-		if(blob.rcounter < rcounter) return
-		rcounter = blob.rcounter
-		bcounter = blob.bcounter
-	}
-
-	// an explicit optional stop
-	if(blob.stop) {
-		ttsqueue = []
-	}
-
-	// handle breath fragments
-	if(blob.llm && blob.llm.breath) {
-		ttsqueue_helper(blob)
+async function _resolve_queue() {
+	while(true) {
+		if(!this._queue.length) return
+		const blob = this._queue[0]
+		const text = fixDollars(blob.breath.breath).replace(/[*<>#%-]/g, "")
+		const final = blob.breath.final ? true : false
+		const interrupt = blob.breath.interrupt
+		const results = await chew(text)
+		if(results && results.data) {
+			if(this._bargein > interrupt) {
+				//console.warn(uuid,"tts throwing away old data",blob)
+				this._queue = []
+				return
+			} else {
+				//console.log(uuid,"tts got valid results",blob,results)
+				sys({audio:{data:results.data,interrupt,final}})
+			}
+		}
+		this._queue.shift()
 	}
 }
 
-// listen to the pubsub backbone for work to do
-sys({resolve})
+//
+// resolve - must not be async else will stall rest of pipeline
+//
 
+function resolve(blob,sys) {
+
+	// when was most recent bargein detected?
+	if(blob.human && blob.human.interrupt) this._bargein = blob.human.interrupt
+
+	// barge in? - @todo in a scenario with multiple llms it may not make sense to stop all of them on any interruption
+	if(blob.human) {
+		this._queue = []
+	}
+
+	// queue breath segments
+	if(!blob.breath || !blob.breath.breath) return
+	this._queue.push(blob)
+	if(this._queue.length !== 1) return
+	this._resolve_queue()
+}
+
+export const tts_entity = {
+	uuid,
+	resolve,
+	_queue:[],
+	_resolve_queue,
+	_bargein: 0
+}

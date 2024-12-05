@@ -8,19 +8,6 @@
   "license": "ISC",
   "type": "module",
   "scripts": {
-    "dev": "tiny-server",
-    "unused dev": "vite",
-    "unused build": "tsc && vite build",
-    "unused preview": "vite preview",
-    "unused predeploy": "npm run build",
-    "unused deploy": "gh-pages -d dist"
-  },
-  "devDependencies": {
-    "gh-pages": "^6.2.0",
-    "typescript": "~5.6.2",
-    "vite": "^5.4.10"
-  },
-  "dependencies": {
-    "orbital-sys": "^1.0.5"
+    "dev": "tiny-server"
   }
 }

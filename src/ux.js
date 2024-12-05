@@ -1,137 +1,13 @@
 
-/////////////////////////////////////////////////////////////////////////////////////
-
-const configuration = 'Haiku master manta ray, talks only in Haiku, what depths find you?'
+const uuid = 'ux_entity'
 
 /////////////////////////////////////////////////////////////////////////////////////
+// ux will bind directly to the index.html layout - good enough for this project
+/////////////////////////////////////////////////////////////////////////////////////
 
-const content =
-`
-<style>
-
-body {
-	font-family: Arial, sans-serif;
-	line-height: 1.6;
-	color: #333;
-	max-width: 800px;
-	margin: 0 auto;
-	padding: 20px;
-	background-color: #f4f4f4;
-}
-h1 {
-	color: #2c3e50;
-	text-align: center;
-}
-
-
-#status-box {
-	text-align: center;
-	padding: 10px;
-	margin-bottom: 20px;
-	border-radius: 4px;
-	font-weight: bold;
-}
-.status-ready {
-	background-color: #2ecc71;
-	color: #fff;
-}
-.status-thinking {
-	background-color: #f1c40f;
-	color: #333;
-}
-.status-pausing {
-	background-color: #e7ec3c;
-	color: #fff;
-}
-.status-speaking {
-	background-color: #e74c3c;
-	color: #fff;
-}
-.status-loading {
-	background-color: #c0392b;
-	color: #fff;
-}
-
-#system-content-container, #chat-container, #about-container {
-	background-color: #fff;
-	border-radius: 8px;
-	padding: 20px;
-	margin-bottom: 20px;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-label {
-	display: block;
-	margin-bottom: 5px;
-	font-weight: bold;
-}
-textarea, input[type="text"] {
-	width: 100%;
-	padding: 10px;
-	margin-bottom: 10px;
-	border: 1px solid #ddd;
-	border-radius: 4px;
-	box-sizing: border-box;
-}
-button {
-	background-color: #3498db;
-	color: #fff;
-	border: none;
-	padding: 10px 15px;
-	border-radius: 4px;
-	cursor: pointer;
-	transition: background-color 0.3s;
-}
-button:hover {
-	background-color: #2980b9;
-}
-#messages {
-	height: 300px;
-	overflow-y: scroll;
-	border: 1px solid #ddd;
-	padding: 10px;
-	margin-bottom: 10px;
-	background-color: #fff;
-	border-radius: 4px;
-}
-#chat-form {
-	display: flex;
-}
-#message-input {
-	flex-grow: 1;
-	margin-right: 10px;
-}
-</style>
-
-<div id='about-container'>
-<h1>Web llm avatar demo</h1>
-<p>See <a href='https://github.com/anselm/web-llm-avatar'>web-llm-avatar</a> for more details. Things you can do here include:
-<ul>
-<li>Try speaking and then interrupting the bot by saying 'stop!'</li>
-<li>Say 'say something' to repeat your own utterance</li>
-</p>
-</div>
-
-<div id="status-box" class="status-loading">Loading...</div>
-
-<div id="system-content-container">
-	<label for="system-content-input">LLM Configuration Prompt:</label>
-	<textarea id="system-content-input" rows="4" placeholder="Describe how the llm should behave...">${configuration}</textarea>
-</div>
-
-<div id="chat-container">
-	<div id="messages"></div>
-	<form id="chat-form">
-		<input type="text" id="message-input" placeholder="Type your message..." autofocus>
-		<button type="submit">Send</button>
-	</form>
-	<!-- since built in voice is so poor lets turn off the button for now -->
-	<button style="display:none" id='voice-button'>Click to enable Voice Input</button>
-</div>
-`
-
-const chatdiv = document.createElement('div')
-document.body.appendChild(chatdiv)
-chatdiv.innerHTML = content
+const chatdiv = document.body // createElement('div')
+// document.body.appendChild(chatdiv)
+//chatdiv.innerHTML = content
 
 const messagesContainer = chatdiv.querySelector('#messages')
 const chatForm = chatdiv.querySelector('#chat-form')
@@ -142,18 +18,22 @@ const progressBar = chatdiv.querySelector('#progress-bar')
 const progressText = chatdiv.querySelector('#progress-text')
 const voiceButton = chatdiv.querySelector('#voice-button')
 
-/////////////////////////////////////////////////////////////////////////////////////
+//
+// utility to paint status to display
+//
 
 let status = 'loading' // ready, pausing, speaking, thinking, loading
 
-function setStatus(text=null,style='ready') { 
+function setStatus(text='Ready',style='ready') { 
 	if(!style) style = 'ready'
-	if(!text) text = style
-	statusBox.className = `status-${style}`;
+	if(!text || typeof text !== 'string') text = style
+	statusBox.className = `status-${style}`
 	statusBox.textContent = text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
+//
+// utility to paint update progress to display
+//
 
 function updateProgress(current, total) {
 
@@ -172,9 +52,12 @@ function updateProgress(current, total) {
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
+//
+// utility to add a new line of text to display
+//
 
 function addTextToChatWindow(sender, text) {
+	if(!text || !text.length) return
 	const messageElement = document.createElement('div');
 	messageElement.textContent = `${sender}: ${text}`;
 	messagesContainer?.appendChild(messageElement);
@@ -183,151 +66,173 @@ function addTextToChatWindow(sender, text) {
 	}
 }
 
-window.addEventListener('load', () => {
-	messageInput.focus()
-})
+//
+// focus the input handler for convenience
+//
 
-/////////////////////////////////////////////////////////////////////////////////////
+messageInput.focus()
 
-const setSystemPrompt = () => {
-	const configuration = systemContentInput.value
-	sys.resolve({llm:{configuration}})
-}
-systemContentInput.addEventListener('input',setSystemPrompt)
-setSystemPrompt()
-
-/////////////////////////////////////////////////////////////////////////////////////
+//
+// utility to fire an event to enable the built in speech recognizer (as opposed to whisper which is on by default)
+//
 
 let desired = true
 
 voiceButton.onclick = () => {
 	desired = desired ? false : true
 	voiceButton.innerHTML = desired ? "Using Built In STT" : "Using Whisper STT"
-	sys.resolve({voice:{desired}})
+	sys({stt:{desired}})
 }
 voiceButton.onclick()
 
-/////////////////////////////////////////////////////////////////////////////////////
-// text pre-reasoning support
-/////////////////////////////////////////////////////////////////////////////////////
+//
+// utility to fire a human text event on the user hitting return on the input dialog
+//
 
-// a request counter that is incremented once per fresh user sentence submission
-let rcounter = 1000
+let rcounter = 1
 
-// a breath counter that typically is 1 - signifying a reset of the response breath fragments
-let bcounter = 1
-
-function textInputResolve(args) {
-
-	// barge-in can only occur on voice input prior to transcribe()
-	if(args.bargein) {
-		rcounter += 1000
-		bcounter = 1
-		sys({
-			rcounter, bcounter,
-			stop:true
-		})
-		setStatus(args.comment ? args.comment : 'Listening','thinking')
-		return
-	}
-
-	// get text
-	const text = args.text ? args.text.trim() : ""
-
-	// on voice there can be intermediate results
-	if(!args.final) {
-
-		// show accumulated spoken text in the input dialog
-		if(args.spoken) {
-			messageInput.value = text
-		}
-
-		setStatus(args.comment ? args.comment : 'Listening','thinking')
-		return
-	}
-
-	// if no text
-	if(!text || !text.length) {
-		setStatus('No Text')
-		return
-	}
-
-	// crude preclassifier for verbal stop requests
-	if(args.spoken && text.includes("stop")) {
-		messageInput.value = text
-		setStatus('Stopped!','loading')
-		return
-	}
-
-	console.log("****************",args)
-
-	// final
-	addTextToChatWindow('You', text)
-	rcounter += 1000
-	bcounter = 1
-	sys({
-		rcounter,bcounter,
-		llm:{content:text}
-	})
-	messageInput.value = ''
-	setStatus('Thinking','thinking')
-}
-
-// Pass user requests to llm
 chatForm.addEventListener('submit', async (e) => {
 	e.preventDefault()
-	textInputResolve({
-		text:messageInput.value,
-		confidence:1,
-		spoken:false,
-		final:true
+	sys({
+		human:{
+			text:messageInput.value,
+			confidence:1,
+			spoken:false,
+			final:true,
+			interrupt:performance.now(),
+			rcounter,
+			bcounter:1,
+			bargein:true
+		}
 	})
+	rcounter++
 })
 
 /////////////////////////////////////////////////////////////////////////////////////
+// ux helper singleton - watches pub sub events
+/////////////////////////////////////////////////////////////////////////////////////
 
-// Watch traffic
-const resolve = (blob) => {
+function resolve(blob,sys) {
 
-	// it is useful to know when the output is truly done
-	if(blob.speakers_done && blob.speakers_done.final) {
+	//
+	// paint 'ready' when actually done talking - @todo this feels a bit sloppy
+	//
+
+	if(blob.audio_done && blob.audio_done.final) {
 		setStatus('Ready')
-		return
 	}
 
-	// pipe voice to text to text reasoner
-	if(blob.voice) {
-		textInputResolve(blob.voice)
+	//
+	// paint general status messages
+	//
+
+	if(blob.status) {
+		setStatus(blob.status.text,blob.status.color || 'loading')
+		//blob.status.progress >= 1.0 ? setStatus(null,'ready') : setStatus(text,'loading')
+		//const match = text.match(/Loading model from cache\[(\d+)\/(\d+)\]/);
+		//if (match) {
+		//	const [current, total] = match.slice(1).map(Number);
+		//	//updateProgressOnDisplay(current, total);
+		//}
 	}
 
-	// ignore traffic not from llm after this line
-	if(!blob.llm) return
+	//
+	// indicate status based on llm breath traffic
+	//
 
-	// display status messages for the act of loading the llm since it is very slow
-	if(blob.llm.status) {
-		if(blob.llm.status.text) {
-			const text = blob.llm.status.text
-			blob.llm.status.progress >= 1.0 ? setStatus(null,'ready') : setStatus(text,'loading')
-			//const match = text.match(/Loading model from cache\[(\d+)\/(\d+)\]/);
-			//if (match) {
-			//	const [current, total] = match.slice(1).map(Number);
-			//	//updateProgressOnDisplay(current, total);
-			//}
+	if(blob.breath) {
+		if(blob.breath.breath) {
+			addTextToChatWindow('system',blob.breath.breath)
 		}
+		if(blob.breath.final) {
+			setStatus('Done Thinking','thinking')
+		}
+	}
+
+	//
+	// human bargein / input - append a few details to the packet
+	//
+
+	if(!blob.human) return
+
+	const human = blob.human
+
+	// get text if any and sanitize a bit
+	const text = human.text ? human.text.trim() : ""
+
+	// hack: the vad will misfire sometimes and never finish - so use a timeout for that case only
+	if(human.spoken) {
+		if(this._vad_timeout) clearTimeout(this._vad_timeout)
+		this._vad_timeout = 0
+		if(!human.final) {
+			this._vad_timeout = setTimeout( ()=> {
+				console.log('...resetting to ready')
+				setStatus('Ready')
+			},5000)
+		}
+	}
+
+	// not final? no actual text? just provide some useful feedback, show voice input and return
+	if(!human.final || !text.length) {
+		if(human.spoken) {
+			messageInput.value = text
+		}
+		setStatus(human.comment ? human.comment : 'Pondering','thinking')
 		return
 	}
 
-	// llm has finished an breaths worth of talking; publish to display
-	if(blob.llm.breath) {
-		addTextToChatWindow('system',blob.llm.breath)
+	// debugging - bypass llm if text starts with 'say'
+	if(text.startsWith('say') && text.length > 5) {
+		const breath = content.substring(4)
+		const interrupt = performance.now()
+		sys({breath:{breath,interrupt,ready:true,final:true}})
+		return
 	}
 
-	// llm has finished all talking for this round
-	if(blob.llm.final) {
-		setStatus('Done Thinking - now Speaking','thinking')
+	// debugging - if user says 'stop' then stop; leveraging barge in detector implicitly
+	if(text.startsWith("stop")) {
+		messageInput.value = text
+		human.text = ''
+		setStatus('Stopped!','ready')
+		return
 	}
 
+	// clear human text from chat input box now - since it may be set by voice
+	messageInput.value = ''
+
+	// paint human text to chat history box
+	addTextToChatWindow('You', text)
+
+	// find a target entity to talk to and then use its llm context - for future multi agent scenarios
+	const name = human.target = 'default'
+	let llm = blob.human.llm = this.ux.targets[name]
+	if(!llm) {
+		llm = blob.human.llm = this.ux.targets[name] = {
+			stream: true,
+			messages: [
+				{
+					role: "system",
+					content: systemContentInput.value
+				}
+			],
+			temperature: 0.3,
+			max_tokens: 256,
+			breath: ''
+		}
+	}
+
+	// set llm pre-prompt configuration
+	llm.messages[0].content = systemContentInput.value
+
+	// stuff new human utterance onto the llm reasoning context
+	llm.messages.push( { role: "user", content:text } )
+
+	// try provide some reasonable feedback at this time
+	setStatus('Thinking','thinking')
 }
 
-sys({resolve})
-
+export const ux_entity = {
+	uuid,
+	ux:{ targets:{} },
+	resolve,
+}

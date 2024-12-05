@@ -1,4 +1,6 @@
 
+const uuid = 'llm_entity'
+
 // feels easiest to just fetch these from the web
 import * as webllm from "https://esm.run/@mlc-ai/web-llm"
 
@@ -12,20 +14,6 @@ const selectedModel = "Llama-3.1-8B-Instruct-q4f32_1-MLC"
 
 // length of an utterance till it is considered 'a full breaths worth'
 const MIN_BREATH_LENGTH = 20
-
-// llm state containing configuration and history to extend
-const request = {
-	stream: true,
-	messages: [
-		{
-			role: "system",
-			content: "You are a helpful digital agent"
-		}
-	],
-	temperature: 0.3,
-	max_tokens: 256,
-	breath: ''
-}
 
 // local flags for background loaded llm
 let engine = null
@@ -44,15 +32,13 @@ async function load() {
 		console.log("llm - worker loading")
 
 		const initProgressCallback = (status) => {
-			console.log("llm - worker loading status",status)
-			sys({llm:{ready,status}})
+			sys({status:{color:(ready?'ready':'loading'),text:status.text}})
 		}
 
 		const completed = (_engine) => {
-			console.log("llm - worker completed")
 			engine = _engine
 			ready = true
-			sys({llm:{ready}})
+			sys({status:{color:(ready?'ready':'loading'),text:'Ready'}})
 		}
 
 		// service workers seem to be starved of cpu/gpu
@@ -76,86 +62,59 @@ async function load() {
 // start fetching the llm right away
 load()
 
-
-// rcounter = request counter, increments once per player request to the llm
-// bcounter = breath counter, increments per breath fragment of a response
-let rcounter = 0
-let bcounter = 0
-
+////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
 /// llm-helper resolve
 ///
-/// listens for {llm:{message:"user queries"}}
+/// listens for things like {human:{text:"how are you?"}}
 ///
 /// publishes {llm:{breath:"llm response fragment",final:true|false}}
 ///
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function resolve(blob) {
+let thinking = false
 
-	// always update rcounter to abort old traffic
-	if(blob.rcounter) {
-		if(blob.rcounter <= rcounter) {
-			console.warn("llm ignoring old traffic",blob)
-			return
-		}
-		rcounter = blob.rcounter
-		bcounter = blob.bcounter
+function resolve(blob,sys) {
+
+	if(!blob.human) return
+
+	// when was most recent bargein detected?
+	if(blob.human && blob.human.interrupt) this._bargein = blob.human.interrupt
+
+	// if not ready then just report that
+	if(!engine || !ready) {
+		sys({breath:{breath:'...still loading',ready,final:true}})
+		return
 	}
 
-	// explicitly stop everything?
-	if(blob.stop) {
+	// barge in? - @todo in a scenario with multiple llms it may not make sense to stop all of them on any interruption
+	if(thinking) {
 		if(!engine || !engine.interruptGenerate) return
 		engine.interruptGenerate()
+		thinking = false		
+	}
+
+	// if request is incomplete (such as merely a barge in) then get out now
+	const request = blob.human.llm
+	if(!request) {
 		return
 	}
 
-	// ignore non llm traffic otherwise
-	if(!blob.llm) return
+	// start reasoning
+	thinking = true
 
-	// configuration for system prompt
-	if(blob.llm && blob.llm.configuration) {
-		request.messages[0].content = blob.llm.configuration
-		return
-	}
+	// this is the highest counter that the callbacks will know about
+	const rcounter = blob.human.rcounter || 1
+	let bcounter = blob.human.bcounter || 1
+	const interrupt = blob.human.interrupt || 0
 
-	// ignore traffic that is not specifically a request to handle new content requests
-	if(!blob.llm.hasOwnProperty('content')) return
-
-	const content = blob.llm.content
-
-	// ignore null messages; these can be passed on purpose to force stop llm
-	if(!content || !content.length) {
-		return
-	}
-
-	// intercept 'say' and say it
-	if(content.startsWith('say ') && content.length > 10) {
-		const breath = content.substring(4)
-		sys({llm:{breath,ready,final:true}})
-		return
-	}
-
-	// if the caller is asking to process a message but not ready then reply as such
-	if(!engine || !ready) {
-		sys({
-			llm:{breath:'...still loading',ready,final:true}
-		})
-		return
-	}
-
-	// accumulate user utterances onto the overall request context for the llm
-	request.messages.push( { role: "user", content } )
-
-	// collect llm results until there is a whole 'breath' and then publish
+	// helper: publish each breath fragment as it becomes large enough
 	let breath = ''
-	const breath_composer = (fragment=null,finished=false) => {
+	const breath_helper = (fragment=null,finished=false) => {
 		if(!fragment || !fragment.length || finished) {
 			if(breath.length) {
 				bcounter++
-				sys({
-					rcounter,bcounter,
-					llm:{breath,ready,final:true}
-				})
+				sys({breath:{breath,ready,final:true,rcounter,bcounter,interrupt}})
 				breath = ''
 			}
 			return
@@ -167,31 +126,40 @@ function resolve(blob) {
 			const i = match[0].length
 			breath += fragment.slice(0,i)
 			bcounter++
-			sys({
-				rcounter,bcounter,
-				llm:{breath,ready,final:false}
-			})
+			sys({breath:{breath,ready,final:false,rcounter,bcounter,interrupt}})
 			breath = fragment.slice(i)
 		}
 	}
 
-	// begin streaming support of llm text responses as breath chunks
-	engine.chat.completions.create(request).then(async (asyncChunkGenerator) => {
+	// helper: a callback per chunk
+	const helper = async (asyncChunkGenerator) => {
 
+		// iterate over async iterables ... @todo can we abort this if we wish?
 		for await (const chunk of asyncChunkGenerator) {
 			if(!chunk.choices || !chunk.choices.length || !chunk.choices[0].delta) continue
 			const content = chunk.choices[0].delta.content
 			const finished = chunk.choices[0].finish_reason
-			breath_composer(content,finished === 'stop')
+			// is our work out of date? @todo call engine.interruptGenerate()?
+			if(this._bargein > interrupt) return
+			breath_helper(content,finished === 'stop')
 		}
 
-		const final = await engine.getMessage()
-		request.messages.push( { role: "assistant", content:final } )
-		sys({llm:{ready,final}})
+		// stuff the final message onto the llm history
+		const paragraph = await engine.getMessage()
+		request.messages.push( { role: "assistant", content:paragraph } )
 
-	})
+		// is our work out of date? @todo call engine.interruptGenerate()?
+		if(this._bargein > interrupt) return
+		sys({breath:{paragraph,breath:'',ready,final:true,rcounter,bcounter,interrupt}})
+	}
+
+	// begin streaming support of llm text responses as breath chunks
+	engine.chat.completions.create(request).then(helper)
 
 }
 
-// register this listener with the pubsub backbone
-sys({resolve})
+export const llm_entity = {
+	uuid,
+	resolve,
+	_bargein:0,
+}
