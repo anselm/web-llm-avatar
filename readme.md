@@ -49,7 +49,7 @@ Goals that were accomplished here:
 
 3) Speak in breath fragments. Send each fragment for audio processing right away. It may also make sense to introduce 100 or 200 millisecond gaps between breath fragments to listen for human interruption (a later feature).
 
-## Revision 3: Voice Input (doneish)
+## Revision 3: Voice Input (done)
 
 Goals: The human participant should be able to speak naturally and have the llm capture complete sentences which it should then translate to text locally, and then be able to respond intelligently. As a critical feature the human should be able to interrupt the llm (this is referred to as 'barge in' and requires a 'vad' - voice activity detector).
 
@@ -97,7 +97,7 @@ Other resources:
 - https://www.reddit.com/r/LocalLLaMA/comments/1fvb83n/open_ais_new_whisper_turbo_model_runs_54_times/ ?
 
 
-## Revision 4: Animated Pupppet (TBD)
+## Revision 4: Animated Pupppet (done) 
 
 The primary challenge of an animated puppet face is to map audio to facial performances. 
 
