@@ -44,14 +44,9 @@ sys({
 	],
 })
 
-// - does not work from cdn
-// - no actual audio
-// - 
-
 //
-// @todo
+// @todo - switch away from general broadcast packets to late binding wires
 //
-// 	- use late bound wires rather than global publish events for clarity and performance
 //	- modify entities to declare explicit input methods as well as explicit output methods
 //  - define these wires on sys.wires
 //
