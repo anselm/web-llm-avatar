@@ -1,7 +1,11 @@
 
-const uuid = 'tts-entity'
+const uuid = 'tts-system'
 
 const voiceId = 'en_US-hfc_female-medium'
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// tts
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //
 // import tts worker right now
@@ -71,30 +75,139 @@ function chew(text) {
 	})
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// speech diarization
+//
+// a local stt worker to generate timing data for speech audio
+// @todo one way to avoid this code would be if the speech generator generated timing data
+// @todo another way to avoid this code is to spread phoneme timing over the duration of the audio
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+const url = new URL('./whisper/whisper-diarization-worker.js', import.meta.url)
+const worker_stt = new Worker(url.href, { type: 'module' })
+worker_stt.postMessage({ type: 'load', data: { device:'webgpu' } })
+
+function speechWorker(audio) {
+	return new Promise((resolve, reject) => {
+		worker_stt.postMessage({ type: 'run', data: { audio, language:'english' } })
+		worker_stt.onmessage = (event) => {
+			switch(event.data.status) {
+			default: break
+			case 'error':
+			case 'complete': {
+				if(event.data.result && event.data.result.transcript && event.data.result.transcript.chunks)
+				if(event.data.result.segments && event.data.result.segments.length)
+				{
+					//console.log("done")
+					const chunks = event.data.result.transcript.chunks
+					const speaker = event.data.result.segments[0].label
+					resolve({chunks,speaker})
+				} else {
+					resolve({})
+				}
+			}
+		}}
+	})
+}
+
+async function speechDiarization(bufferArray) {
+
+	const whisper = {
+		words: [],
+		wtimes: [],
+		wdurations: [],
+		markers: [],
+		mtimes: []
+	}
+
+	//
+	// extract audio from ArrayBuffer
+	//
+
+	const audioContext = new window.AudioContext({sampleRate: 16000 })
+	let audioData = await audioContext.decodeAudioData(bufferArray)
+	let audio
+	if (audioData.numberOfChannels === 2) {
+		const SCALING_FACTOR = Math.sqrt(2)
+		let left = audioData.getChannelData(0)
+		let right = audioData.getChannelData(1)
+		audio = new Float32Array(left.length)
+		for (let i = 0; i < audioData.length; ++i) {
+			audio[i] = SCALING_FACTOR * (left[i] + right[i]) / 2
+		}
+	} else {
+		audio = audioData.getChannelData(0)
+	}
+
+	//
+	// perform transcription
+	// Add words to the whisperAudio object
+	// @todo the -150 is a hack... it's setting timing for later in pipeline and probably should not be set here
+	//
+
+	let words = await speechWorker(audio)
+	words.chunks.forEach( x => {
+		whisper.words.push( x.text );
+		whisper.wtimes.push( 1000 * x.timestamp[0] - 150 );
+		whisper.wdurations.push( 1000 * (x.timestamp[1] - x.timestamp[0]) );
+	})
+
+	return whisper
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// resolve support
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 async function _resolve_queue() {
 	while(true) {
 		if(!this._queue.length) return
 		const blob = this._queue[0]
-		const text = fixDollars(blob.breath.breath).replace(/[*<>#%-]/g, "")
-		const final = blob.breath.final ? true : false
 		const interrupt = blob.breath.interrupt
+
+		const time1 = performance.now()
+
+		// tts
+		const text = fixDollars(blob.breath.breath).replace(/[*<>#%-]/g, "")
 		const results = await chew(text)
-		if(results && results.data) {
-			if(this._bargein > interrupt) {
-				//console.warn(uuid,"tts throwing away old data",blob)
-				this._queue = []
-				return
-			} else {
-				//console.log(uuid,"tts got valid results",blob,results)
-				sys({audio:{data:results.data,interrupt,final}})
-			}
+
+		// interrupted?
+		if(this._bargein > interrupt) {
+			this._queue = []
+			return
 		}
+
+		// data error?
+		if(!results || !results.data) {
+			this._queue_shift()
+			continue
+		}
+
+		const time2 = performance.now()
+
+		// diarization
+		const whisper = await speechDiarization(results.data.slice(0))
+
+		const time3 = performance.now()
+		//console.log(uuid,'it took',time3-time1,'milliseconds to say',text,'(',time1,time2,time3,')')
+
+		// interrupted?
+		if(this._bargein > interrupt) {
+			this._queue = []
+			return
+		}
+
+		const final = blob.breath.final ? true : false
+		//console.log(uuid,"tts got valid results",blob,results)
+		sys({audio:{data:results.data,whisper,interrupt,final}})
 		this._queue.shift()
 	}
 }
 
 //
-// resolve - must not be async else will stall rest of pipeline
+// resolve - @note must not be async else will stall rest of pipeline
 //
 
 function resolve(blob,sys) {
@@ -114,10 +227,11 @@ function resolve(blob,sys) {
 	this._resolve_queue()
 }
 
-export const tts_entity = {
+export const tts_system = {
 	uuid,
 	resolve,
 	_queue:[],
 	_resolve_queue,
-	_bargein: 0
+	_bargein: 0,
+	//singleton: true // an idea to distinguish systems from things that get multiply instanced @todo
 }

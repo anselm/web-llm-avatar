@@ -1,5 +1,5 @@
 
-const uuid = 'stt-sys-entity'
+const uuid = 'stt-sys-system'
 
 ///
 /// built in voice recognition - a singleton
@@ -139,9 +139,10 @@ function resolve(blob) {
 
 }
 
-export const stt_sys_entity = {
+export const stt_sys_system = {
 	uuid,
-	resolve
+	resolve,
+	//singleton: true // an idea to distinguish systems from things that get multiply instanced @todo
 }
 
 

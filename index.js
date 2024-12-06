@@ -1,109 +1,73 @@
 
-import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys/+esm'
+// @todo for some reason /+esm does something very strange with import maps - they stop working!
+import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys@1.0.8/src/sys.js'
 
-// manifests
-await sys({
-	anchor:import.meta.url,
-	load:[
-
-		// globally publish new {human} packets
-		'./src/stt.js',
-		'./src/stt-sys.js',
-
-		// intercept {human} packets and paint to display
-		// intercept {human} packets and mark up the packet with one of the llm ai participants as a target
-		// intercept {breath} packets and paint to display
-		'./src/ux.js',
-
-		// intercept {human} packets and may publish global {breath} packets
-		'./src/llm.js',
-
-		// intercept {breath} packets and generate {speech} packets
-		'./src/tts.js',
-
-		// intercept {speech} packets and drive puppet rig
-		// 'orbital/orbital-puppet/puppet.js',
-
-		// pipe audio to speakers - catches {audio} packets
-		// this audio system actually is slightly problematic; we want more granular completion events for puppet
-		// also it should be spatialized and integrated with orbital-volume
-		'./src/audio.js',
-	]
-})
+//
+// a basic pipeline for stt -> llm -> tts -> audio out
+//
 
 sys({
-	wire:[
-//		'stt_manager','stt.human_out','ux_manager','ux.human_in'
-//		'ux_manager', ''
-	]
+	load:[
+
+		// publishes new {human} packets
+		// arguably could publish a dedicated {bargein} event for clarity @todo
+		'here/src/stt.js',
+		'here/src/stt-sys.js',
+
+		// observes {human} packets and paint to display
+		// observes {human} packets and mark up the packet with one of the llm ai participants as a target
+		// observes {breath} packets and paint to display
+		'here/src/ux.js',
+
+		// observes {human} packets and may publish global {breath} packets
+		// observes {human.bargein} packets for barge in detection
+		'here/src/llm.js',
+
+		// observes {breath} packets and generate {speech} packets
+		// observes {human.bargein} packets only for barge in detection
+		'here/src/tts.js',
+
+		// observes {audio} packets
+		// observes {human.bargein} packets only for barge in detection
+		// disabled for now since puppet below has to orchestrate more tightly
+		// 'here/src/audio.js',
+
+		// 3d scene support
+		'https://cdn.jsdelivr.net/npm/orbital-volume/volume.js',
+
+		// observes {audio} packets
+		// observes {puppet} packets
+		'here/puppet/puppet.js',
+
+		// generates {puppet} packets
+		'here/manifests/geometry001.js',
+	],
 })
 
+// - does not work from cdn
+// - no actual audio
+// - 
+
 //
-// test the 3d volume stuff - @todo replace with puppet
+// @todo
 //
-
-const volume = {
-	anchor:import.meta.url,
-	load: [
-		'orbital/orbital-volume/volume.js',
-		'orbital/orbital-puppet/puppet.js'
-	]
-}
-
-const scene = {
-	uuid:'/apps/myapp/volume001/scene',
-	volume: {
-		geometry: 'scene',
-		div: 'volume001',
-		near: 0.1,
-		far: 100,
-		cameraPosition:[0,1.5,1], // @todo move camera stuff elsewhere - see orbitcontrols
-		cameraTarget:[0,1.5,0],
-		cameraMin: 1,
-		cameraMax: 100,
-		background: 0x202020,
-		alpha: false,
-		axes: true,
-		controls: false,
-	}
-}
-
-const light001 = {
-	volume: {
-		pose:{
-			position:[1,1,1]
-		},
-		geometry:'light',
-		light:'directional',
-		intensity: 1,
-		color: 0xffeae0
-	}
-}
-
-const light002 = {
-	volume: {
-		geometry:'light',
-		light:'ambient',
-		color: 0xffeae0,
-		intensity: 1
-	}
-}
-
-const puppet = {
-	uuid:'/apps/myapp/volume001/puppet',
-	volume: {
-		geometry: 'gltf',
-		url: import.meta.url + '/../assets/rpm-mixamo-t-posed.glb',
-		pose: {
-			position: [0,0,0]
-		}
-	},
-	puppet: {
-		// rules for puppet
-	}
-}
-
-//await sys(volume,scene,light001,light002,puppet)
-
-
-
+// 	- use late bound wires rather than global publish events for clarity and performance
+//	- modify entities to declare explicit input methods as well as explicit output methods
+//  - define these wires on sys.wires
+//
+//	- stt.text_out -> ux.text_in
+//	- ux.text_out -> llm.text_in
+//	- llm.text_out -> tts.text_in
+//	- tts.audio_out -> audio.audio_in
+//	- tts.audio_out -> puppet.audio_in
+//
+//	- audio.audio_done_out -> ux.audio_done_in
+//	- 
+//
+// sys({
+//	wires:[
+//		"stt.text_out -> ux.text_in"
+//		'stt','text_out','ux','human_in'
+//	]
+//})
+//

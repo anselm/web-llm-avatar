@@ -1,5 +1,5 @@
 
-const uuid = 'stt-entity'
+const uuid = 'stt-system'
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // xenova stt whisper - https://huggingface.co/spaces/Xenova/whisper-web
@@ -314,6 +314,7 @@ async function start() {
 		})
 		myvad.start()
 	} catch(err) {
+		alert('Microphone Blocked')
 		console.error(uuid,err)
 	}
 
@@ -380,7 +381,7 @@ async function start() {
 /// the interrupt field is used as a timestamp to detect when barge in is more recent than last job
 ///
 
-export const stt_entity = {
+export const stt_system = {
 
 	uuid,
 
@@ -407,9 +408,11 @@ export const stt_entity = {
 	resolve: function(blob,sys) {
 		if(!blob || !blob.stt || !blob.stt.hasOwnProperty('desired')) return
 		this.stt.use_system_voice_recognition = blob.stt.desired ? true : false
-	}
+	},
+
+	//singleton: true // an idea to distinguish systems from things that get multiply instanced @todo
 }
 
 // start up immediately - no point in waiting
-stt_entity.stt.start()
+stt_system.stt.start()
 

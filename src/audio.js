@@ -1,12 +1,12 @@
 
-const uuid = 'audio_entity'
+const uuid = 'audio_system'
 
 let rcounter = 0
 let bcounter = 0
 let context = null
 let sound = null
 
-function play(data) {
+function play_audio(data) {
 	return new Promise((happy,sad)=>{
 		if(!context) context = new AudioContext({sampleRate:16000})
 		context.decodeAudioData(data, (audioBuffer) => {
@@ -31,14 +31,14 @@ async function _resolve_queue() {
 	while(true) {
 		if(!this._queue.length) break
 		const blob = this._queue[0]
-		await play(blob.audio.data)
+		await play_audio(blob.audio.data)
 		sys({ audio_done: { final: blob.audio.final ? true : false }})
 		this._queue.shift()
 	}
 }
 
 //
-// resolve - must not be async else will stall rest of pipeline
+// resolve - @note must not be async else will stall rest of pipeline
 //
 
 function resolve(blob,sys) {
@@ -59,10 +59,11 @@ function resolve(blob,sys) {
 	this._resolve_queue()
 }
 
-export const audio_entity = {
+export const audio_system = {
 	uuid,
 	resolve,
 	_queue: [],
 	_resolve_queue,
 	_bargein: 0,
+	//singleton: true // an idea to distinguish systems from things that get multiply instanced @todo
 }

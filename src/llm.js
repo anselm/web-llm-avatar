@@ -1,5 +1,5 @@
 
-const uuid = 'llm_entity'
+const uuid = 'llm_system'
 
 // feels easiest to just fetch these from the web
 import * as webllm from "https://esm.run/@mlc-ai/web-llm"
@@ -29,7 +29,6 @@ self.onmessage = (msg) => { handler.onmessage(msg); };
 async function load() {
 
 	try {
-		console.log("llm - worker loading")
 
 		const initProgressCallback = (status) => {
 			sys({status:{color:(ready?'ready':'loading'),text:status.text}})
@@ -158,8 +157,9 @@ function resolve(blob,sys) {
 
 }
 
-export const llm_entity = {
+export const llm_system = {
 	uuid,
 	resolve,
 	_bargein:0,
+	//singleton: true // an idea to distinguish systems from things that get multiply instanced @todo
 }

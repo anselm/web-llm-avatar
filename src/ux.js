@@ -1,5 +1,5 @@
 
-const uuid = 'ux_entity'
+const uuid = 'ux_system'
 
 /////////////////////////////////////////////////////////////////////////////////////
 // ux will bind directly to the index.html layout - good enough for this project
@@ -183,7 +183,7 @@ function resolve(blob,sys) {
 
 	// debugging - bypass llm if text starts with 'say'
 	if(text.startsWith('say') && text.length > 5) {
-		const breath = content.substring(4)
+		const breath = text.substring(4)
 		const interrupt = performance.now()
 		sys({breath:{breath,interrupt,ready:true,final:true}})
 		return
@@ -231,8 +231,9 @@ function resolve(blob,sys) {
 	setStatus('Thinking','thinking')
 }
 
-export const ux_entity = {
+export const ux_system = {
 	uuid,
 	ux:{ targets:{} },
 	resolve,
+	//singleton: true // an idea to distinguish systems from things that get multiply instanced @todo
 }
