@@ -183,6 +183,7 @@ function resolve(blob,sys) {
 
 	// debugging - bypass llm if text starts with 'say'
 	if(text.startsWith('say') && text.length > 5) {
+		messageInput.value = ''
 		const breath = text.substring(4)
 		const interrupt = performance.now()
 		sys({breath:{breath,interrupt,ready:true,final:true}})
@@ -190,8 +191,8 @@ function resolve(blob,sys) {
 	}
 
 	// debugging - if user says 'stop' then stop; leveraging barge in detector implicitly
-	if(text.startsWith("stop")) {
-		messageInput.value = text
+	if(text === "stop" || text === "please stop" || text === "ok stop") {
+		messageInput.value = ''
 		human.text = ''
 		setStatus('Stopped!','ready')
 		return
