@@ -5,12 +5,15 @@ const uuid = 'llm_system'
 import * as webllm from "https://esm.run/@mlc-ai/web-llm"
 
 // this is the only model that behaves well
+
 const selectedModel = "Llama-3.1-8B-Instruct-q4f32_1-MLC"
 
 // these models just seem to behave badly in a variety of different ways
 //const selectedModel = "TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC"
 //const selectedModel = 'snowflake-arctic-embed-s-q0f32-MLC-b4'
 //const selectedModel = "Llama-3.2-3B-Instruct-q4f16_1-MLC"
+// Llama-3.2-1B-Instruct-q4f16_1-MLC
+// const selectedModel = "SmolLM2-360M-Instruct-q4f16_1-MLC" // this works and is extremely stupid
 
 // length of an utterance till it is considered 'a full breaths worth'
 const MIN_BREATH_LENGTH = 20
