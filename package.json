@@ -1,7 +1,7 @@
 {
   "name": "web-llm-avatar",
   "description": "open source testbed using off the shelf parts to exercise a conversational interface to llm with voice activity detection and barge-in support and later viseme driven face puppet rigs",
-  "version": "1.0.5",
+  "version": "1.0.9",
   "homepage": "https://anselm.github.io/web-llm-avatar/",
   "keywords": [ "web-llm", "ai", "voice", "chatbot", "viseme", "audio2face" ],
   "author": "anselm",

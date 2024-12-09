@@ -37,7 +37,8 @@ sys({
 
 		// observes {audio} packets
 		// observes {puppet} packets
-		'https://cdn.jsdelivr.net/npm/orbital-puppet/puppet.js',
+		'here/shared/orbital/orbital-puppet/puppet.js',
+		//'https://cdn.jsdelivr.net/npm/orbital-puppet/puppet.js',
 
 		// generates {puppet} packets
 		'here/manifests/geometry001.js',
