@@ -27,7 +27,7 @@ export const aaac_camera001 = {
 	volume: {
 		geometry: 'camera',
 		pose:{
-			position:[0,1,4],
+			position:[0,1.5,1],
 			love:[0,1.5,0]
 		}
 	}
