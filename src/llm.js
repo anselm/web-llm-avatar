@@ -100,58 +100,92 @@ async function llm_resolve(agent,blob) {
 	let bcounter = blob.human.bcounter || 1
 	const interrupt = blob.human.interrupt || 0
 
-/*
-//// TEST a flowise flow
-
-try {
-
-    const response = await fetch(
-        "http://localhost:3020/api/v1/prediction/8057ad20-37f4-4cd7-8688-5dc135f5cecb",
-        {
-            method: "POST",
-            headers: {
-                Authorization: "Bearer OS-ncOA5-h6CqaNLwmfe-jkBMTW9ThMxNkKr-d00etc",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({"question":"what is up?"})
-        }
-    );
-
-    const result = await response.json();
-
-if(!result.text) {
-	console.error("*********** no text",result)
-	return
-}
-
-
-const sentences = result.text.split(/[.!?]|,/);
-
-sentences.forEach(breath => {
-
-sys({breath:{breath,ready:true,final:true,rcounter,bcounter,interrupt}})
-
-})
-
-
-} catch(err) {
-	console.error(err)
-}
-
-return
-
-
-//////////////////////////
-*/
-	//
-	// remote support
-	//
-
-	// @tbd
+	// use a remote endpoint?
 	if(!agent.llm_local) {
-		sys({breath:{breath:'you will need to supply an openai key and url - or set local above',ready:false,final:true}})
+
+		// configure fetch
+		const props = {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		}
+
+		// set bearer
+		props.headers.Authorization = `Bearer ${agent.llm_auth||""}`
+
+		// encode blob for openai
+		props.body = JSON.stringify({
+			model: 'gpt-3.5-turbo',
+			messages:llm.messages
+		})
+
+		// url
+		const url = agent.llm_url || 'https://api.openai.com/v1/chat/completions'
+
+		// do reasoning
+		try {
+			const response = await fetch(url,props)
+			if(!response.ok) {
+				sys({breath:{breath:"error talking to remote url",ready:true,final:true,rcounter,bcounter,interrupt}})
+				console.error("llm reasoning error",response)
+			} else {
+				const json = await response.json()
+				console.log(json)
+				const sentence = json.choices[0].message.content
+				const fragments = sentence.split(/[.!?]|,/);
+				fragments.forEach(breath => {
+					sys({breath:{breath,ready:true,final:true,rcounter,bcounter,interrupt}})
+				})
+			}
+		} catch(err) {
+			sys({breath:{breath:"error talking to remote url",ready:true,final:true,rcounter,bcounter,interrupt}})
+			console.error("puppet: reasoning catch error",err)
+		}
+
 		return
 	}
+
+	/*
+	//// TEST a flowise flow
+
+	try {
+
+	    const response = await fetch(
+	        "http://localhost:3020/api/v1/prediction/8057ad20-37f4-4cd7-8688-5dc135f5cecb",
+	        {
+	            method: "POST",
+	            headers: {
+	                Authorization: "Bearer OS-ncOA5-h6CqaNLwmfe-jkBMTW9ThMxNkKr-d00etc",
+	                "Content-Type": "application/json"
+	            },
+	            body: JSON.stringify({"question":"what is up?"})
+	        }
+	    );
+
+	    const result = await response.json();
+
+	if(!result.text) {
+		console.error("*********** no text",result)
+		return
+	}
+
+
+	const sentences = result.text.split(/[.!?]|,/);
+	sentences.forEach(breath => {
+		sys({breath:{breath,ready:true,final:true,rcounter,bcounter,interrupt}})
+	})
+
+
+	} catch(err) {
+		console.error(err)
+	}
+
+	return
+
+
+	//////////////////////////
+	*/
 
 	//
 	// local support
@@ -258,6 +292,7 @@ async function resolve(blob,sys) {
 		let agent = llms[0]
 		agent.llm_local = blob.llm_configure.local
 		agent.llm_url = blob.llm_configure.url
+		agent.llm_auth = blob.llm_configure.auth
 		if(agent.llm_local) load()
 	}
 }

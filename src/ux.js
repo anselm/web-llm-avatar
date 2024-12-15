@@ -112,6 +112,8 @@ let allow_localllm = false
 let allow_bargein = false
 let allow_microphone = false
 let allow_autosubmit = false
+let llm_url = ""
+let llm_auth = ""
 
 function handleSwitch(switchId, state=false) {
 	switch (switchId) {
@@ -120,7 +122,7 @@ function handleSwitch(switchId, state=false) {
 			allow_localllm = state
 			// turn local on or off
 			// @todo add local url support
-			sys({llm_configure:{local:state}})
+			sys({llm_configure:{local:allow_localllm,url:llm_url,auth:llm_auth}})
 			break;
 		case 'microphone':
 			allow_microphone = state
@@ -222,6 +224,26 @@ function resolve(blob,sys) {
 		const breath = text.substring(4)
 		const interrupt = performance.now()
 		sys({breath:{breath,interrupt,ready:true,final:true}})
+		return
+	}
+
+	// debugging - auth, url
+	if(text.startsWith('auth') && text.length > 5) {
+		messageInput.value = ''
+		llm_auth = text.substring(5).trim()
+		const interrupt = performance.now()
+		sys({llm_configure:{local:allow_localllm,url:llm_url,auth:llm_auth}})
+		alert(llm_auth)
+		return
+	}
+
+	// debugging - auth, url
+	if(text.startsWith('url') && text.length > 5) {
+		messageInput.value = ''
+		llm_url = text.substring(4).trim()
+		const interrupt = performance.now()
+		sys({llm_configure:{local:allow_localllm,url:llm_url,auth:llm_auth}})
+		alert(llm_url)
 		return
 	}
 
