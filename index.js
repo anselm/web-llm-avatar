@@ -1,6 +1,6 @@
 
 // @todo for some reason /+esm does something very strange with import maps - they stop working!
-import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys@1.0.8/src/sys.js'
+import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys@latest/src/sys.js'
 
 //
 // a basic pipeline for stt -> llm -> tts -> audio out
@@ -33,11 +33,11 @@ sys({
 		// 'here/src/audio.js',
 
 		// 3d scene support
-		'here/shared/orbital/orbital-volume/volume.js',
+		'https://cdn.jsdelivr.net/npm/orbital-volume@latest/volume.js',
 
 		// observes {audio} packets
 		// observes {puppet} packets
-		'here/shared/orbital/orbital-puppet/puppet.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.1.1/puppet.js',
 
 		// llms
 		'here/manifests/llms001.js',
