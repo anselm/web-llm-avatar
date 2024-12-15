@@ -20,6 +20,7 @@ const MIN_BREATH_LENGTH = 20
 
 // local flags for background loaded llm
 let engine = null
+let loading = false
 let ready = false
 
 // worker - as a string because dynamic imports are a hassle with rollup/vite
@@ -30,6 +31,8 @@ self.onmessage = (msg) => { handler.onmessage(msg); };
 `
 
 async function load() {
+	if(loading) return
+	loading = true
 
 	try {
 
@@ -61,54 +64,108 @@ async function load() {
 	}
 }
 
-// start fetching the llm right away
-load()
+async function llm_resolve(agent,blob) {
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-///
-/// llm-helper resolve
-///
-/// listens for things like {human:{text:"how are you?"}}
-///
-/// publishes {llm:{breath:"llm response fragment",final:true|false}}
-///
-////////////////////////////////////////////////////////////////////////////////////////////////////
+	// stop this llm
+	if(agent.thinking) {
+		// if local then stop
+		if(agent.engine && agent.engine.interruptGenerate) {
+			agent.engine.interruptGenerate()
+			agent.thinking = false
+		}
+		// @todo stop remote
+	}
 
-let thinking = false
+	// if utterance is incomplete (such as merely a barge in) then done
+	if(!blob.human || !blob.human.final) return
 
-function resolve(blob,sys) {
+	// get text if any
+	const text = blob.human.text
 
-	if(!blob.human) return
+	const llm = agent.llm
+
+	// set llm pre-prompt configuration
+	if(blob.human.systemContent) {
+		llm.messages[0].content = blob.human.systemContent
+	}
+
+	// stuff new human utterance onto the llm reasoning context
+	llm.messages.push( { role: "user", content:text } )
 
 	// when was most recent bargein detected?
-	if(blob.human && blob.human.interrupt) this._bargein = blob.human.interrupt
-
-	// if not ready then just report that
-	if(!engine || !ready) {
-		sys({breath:{breath:'...still loading',ready,final:true}})
-		return
-	}
-
-	// barge in? - @todo in a scenario with multiple llms it may not make sense to stop all of them on any interruption
-	if(thinking) {
-		if(!engine || !engine.interruptGenerate) return
-		engine.interruptGenerate()
-		thinking = false		
-	}
-
-	// if request is incomplete (such as merely a barge in) then get out now
-	const request = blob.human.llm
-	if(!request) {
-		return
-	}
-
-	// start reasoning
-	thinking = true
+	if(blob.human && blob.human.interrupt) agent._bargein = blob.human.interrupt
 
 	// this is the highest counter that the callbacks will know about
 	const rcounter = blob.human.rcounter || 1
 	let bcounter = blob.human.bcounter || 1
 	const interrupt = blob.human.interrupt || 0
+
+/*
+//// TEST a flowise flow
+
+try {
+
+    const response = await fetch(
+        "http://localhost:3020/api/v1/prediction/8057ad20-37f4-4cd7-8688-5dc135f5cecb",
+        {
+            method: "POST",
+            headers: {
+                Authorization: "Bearer OS-ncOA5-h6CqaNLwmfe-jkBMTW9ThMxNkKr-d00etc",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({"question":"what is up?"})
+        }
+    );
+
+    const result = await response.json();
+
+if(!result.text) {
+	console.error("*********** no text",result)
+	return
+}
+
+
+const sentences = result.text.split(/[.!?]|,/);
+
+sentences.forEach(breath => {
+
+sys({breath:{breath,ready:true,final:true,rcounter,bcounter,interrupt}})
+
+})
+
+
+} catch(err) {
+	console.error(err)
+}
+
+return
+
+
+//////////////////////////
+*/
+	//
+	// remote support
+	//
+
+	// @tbd
+	if(!agent.llm_local) {
+		sys({breath:{breath:'you will need to supply an openai key and url - or set local above',ready:false,final:true}})
+		return
+	}
+
+	//
+	// local support
+	//
+
+	// if got something to say but not ready and is local then try load and just report not ready
+	if(!ready) {
+		load()
+		sys({breath:{breath:'...still loading',ready:false,final:true}})
+		return
+	}
+
+	// start reasoning
+	blob.thinking = true
 
 	// helper: publish each breath fragment as it becomes large enough
 	let breath = ''
@@ -142,27 +199,73 @@ function resolve(blob,sys) {
 			const content = chunk.choices[0].delta.content
 			const finished = chunk.choices[0].finish_reason
 			// is our work out of date? @todo call engine.interruptGenerate()?
-			if(this._bargein > interrupt) return
+			if(blob._bargein > interrupt) return
 			breath_helper(content,finished === 'stop')
 		}
 
 		// stuff the final message onto the llm history
 		const paragraph = await engine.getMessage()
-		request.messages.push( { role: "assistant", content:paragraph } )
+		llm.messages.push( { role: "assistant", content:paragraph } )
 
 		// is our work out of date? @todo call engine.interruptGenerate()?
-		if(this._bargein > interrupt) return
+		if(blob._bargein > interrupt) return
 		sys({breath:{paragraph,breath:'',ready,final:true,rcounter,bcounter,interrupt}})
 	}
 
 	// begin streaming support of llm text responses as breath chunks
-	engine.chat.completions.create(request).then(helper)
+	engine.chat.completions.create(llm).then(helper)
+}
 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+///
+/// llm-helper resolve
+///
+/// listens for things like {human:{text:"how are you?"}}
+///
+/// publishes {llm:{breath:"llm response fragment",final:true|false}}
+///
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+async function resolve(blob,sys) {
+
+	// right now i am tracking the llm entities and then sending traffic onwards to handlers for them
+	// @todo perhaps this can be generalized or improved
+
+	// ignore
+	if(blob.tick || blob.time) return
+
+	// store llm if any
+	if(blob.llm && blob.uuid) {
+		this._llms[blob.uuid] = blob
+	}
+
+	// if traffic from a human then direct to an llm
+	if(blob.human) {
+		let llms = Object.values(this._llms)
+		if(!llms.length) return
+		let agent = this._llms[blob.human.target||'default'] || llms[0]
+		if(agent) {
+			await llm_resolve(agent,blob)
+		}
+	}
+
+	// configuration hack - local or remote?
+	if(blob.llm_configure) {
+		let llms = Object.values(this._llms)
+		if(!llms.length) return
+		let agent = llms[0]
+		agent.llm_local = blob.llm_configure.local
+		agent.llm_url = blob.llm_configure.url
+		if(agent.llm_local) load()
+	}
 }
 
 export const llm_system = {
 	uuid,
 	resolve,
 	_bargein:0,
+	_llms: {}
 	//singleton: true // an idea to distinguish systems from things that get multiply instanced @todo
 }

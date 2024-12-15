@@ -112,6 +112,23 @@ button:hover {
 	flex-grow: 1;
 	margin-right: 10px;
 }
+
+    .switch-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .switch-label {
+      font-weight: bold;
+      margin-right: 10px;
+      flex-grow: 1;
+    }
+    .switch-container input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
 </style>
 
 <div id='about-container'>
@@ -120,10 +137,35 @@ button:hover {
 <ul>
 <li>Try speaking and then interrupting the bot by saying 'stop!'</li>
 <li>Say 'say something' to repeat your own utterance</li>
+</ul>
 </p>
 </div>
 
-<div id="status-box" class="status-loading">Loading...</div>
+<div 
+
+<div id="status-box" class="status-ready">Ready...</div>
+
+<div id="system-content-container">
+  <div class="switch-container">
+    <label class="switch-label" for="local-llm">Use Local LLM</label>
+    <input type="checkbox" id="local-llm" onclick="handleSwitch('local-llm', this.checked)">
+  </div>
+
+  <div class="switch-container">
+    <label class="switch-label" for="microphone">Microphone On</label>
+    <input type="checkbox" id="microphone" onclick="handleSwitch('microphone', this.checked)">
+  </div>
+
+  <div class="switch-container">
+    <label class="switch-label" for="barge-in">Allow Barge In Vocalization</label>
+    <input type="checkbox" id="barge-in" onclick="handleSwitch('barge-in', this.checked)">
+  </div>
+
+  <div class="switch-container">
+    <label class="switch-label" for="auto-submit">Automatically Submit Vocalizations</label>
+    <input type="checkbox" id="auto-submit" onclick="handleSwitch('auto-submit', this.checked)">
+  </div>
+</div>
 
 <div id="system-content-container">
 	<label for="system-content-input">LLM Configuration Prompt:</label>

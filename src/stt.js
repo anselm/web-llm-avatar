@@ -234,6 +234,8 @@ const worker = new Worker(URL.createObjectURL(new Blob([xenovaWorker],{type:'tex
 // system voice recognition doesn't participate in audio echo cancellation - it is pretty broken in other ways also
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+const positiveSpeechThreshold = 0.8
+
 async function start() {
 
 	// while 'this' is preserved through the closures it is more clear to be explicit
@@ -246,84 +248,69 @@ async function start() {
 	let bcounter = 1
 
 	//
-	// start voice activity detection to detect participant barge in overtop of echo cancellation
+	// publish a message to pub sub observers
 	//
+	const publish = (human={}) => {
 
-	try {
-		const myvad = await vad.MicVAD.new({
-			positiveSpeechThreshold: 0.8,
-			minSpeechFrames: 5,
-			preSpeechPadFrames: 10,
-			onFrameProcessed: (probs) => {
-				if(probs.isSpeech < 0.9) return
+		const defaults = {
+			text:"",
+			interrupt: performance.now(),
+			confidence:1,
+			final:false,
+			bargein:true,
+			spoken:true,
+			rcounter, bcounter,
+		}
 
-				// important to send a barge in event - although worker is not giving us partial text
-				const blob = {human:{
-					text:"",
-					interrupt: performance.now(),
-					confidence:probs.isSpeech,
-					final:false,
-					bargein:true,
-					spoken:true,
-					rcounter, bcounter,
-					comment:`User vocalization ${bcounter} heard`
-				}}
+		// merge overtop defaults
+		human = Object.assign(defaults,human)
 
-				// experimental output pathway
-				context.human_out(blob)
+		// publish - testing out an idea of formal outputs rather than directly to sys()
+		context.human_out({ bargein: true, human })
 
-				// count how many partial snippets of audio heard (i call these 'breaths')
-				bcounter++
+		if(human.final) {
+			rcounter++
+			bcounter = 1
+		} else {
+			bcounter++
+		}
 
-			},
-			onSpeechEnd: (audio) => {
-
-				// it *may* be helpful to send a notification that a barge in occurred now? arguable...
-				const blob = {voice:{
-					text:"",
-					interrupt: performance.now(),
-					confidence:1,
-					final:true,
-					bargein:true,
-					spoken:true,
-					rcounter, bcounter,
-					comment:"User full sentence heard"
-				}}
-
-				// experimental output pathway
-				context.human_out(blob)
-
-				// increment response counter
-				rcounter++
-
-				// reset breath counter
-				bcounter = 0
-
-				// if not using system voice then compute audio ourselves
-				if(!this.use_system_voice_recognition) {
-					worker.postMessage({
-						audio,
-						model: DEFAULTS.DEFAULT_MODEL,
-						multilingual: DEFAULTS.DEFAULT_MULTILINGUAL,
-						quantized: DEFAULTS.DEFAULT_QUANTIZED,
-						subtask: DEFAULTS.DEFAULT_SUBTASK,
-						language: DEFAULTS.DEFAULT_LANGUAGE,
-					})
-				}
-			},
-		})
-		myvad.start()
-	} catch(err) {
-		alert('Microphone Blocked')
-		console.error(uuid,err)
+		// experimental output pathway
+		context.human_out({human},sys)
 	}
 
 	//
-	// catch low level stt events from the internal worker and publish out to our wider pubsub system
-	// at this point it may not make sense to flag barge in .. debatable?
+	// barge-in and audio completion callback
 	//
 
-	worker.addEventListener("message", (event) => {
+	const vad_helper = (probs=null,audio=null) => {
+
+		// if a probability is supplied and it is not likely speech then return
+		const confidence = probs && probs.isSpeech ? probs.isSpeech : 1
+		if(confidence < positiveSpeechThreshold) return
+
+		// publish barge in to local pubsub observers
+		const comment = `User vocalization ${bcounter} heard ${audio?'final':''}`
+		publish({confidence,final:false,comment})
+
+		// if actual audio has arrived then may pass it onto tts
+		if(audio && !this.use_system_voice_recognition) {
+			worker.postMessage({
+				audio,
+				model: DEFAULTS.DEFAULT_MODEL,
+				multilingual: DEFAULTS.DEFAULT_MULTILINGUAL,
+				quantized: DEFAULTS.DEFAULT_QUANTIZED,
+				subtask: DEFAULTS.DEFAULT_SUBTASK,
+				language: DEFAULTS.DEFAULT_LANGUAGE,
+			})
+		}
+	}
+
+	//
+	// stt callback
+	//
+
+	const stt_helper = (event) => {
 		if(!event.data) return
 	    switch(event.data.status) {
 	    default:
@@ -334,34 +321,44 @@ async function start() {
 	        return
 	    case 'update':
 	    case 'complete':
+	    	// fall thru
 	    }
 
 		const final = event.data.status === 'complete'
-		const text = final ? event.data.data.text : event.data.data[0]
+
+		let text = final ? event.data.data.text : event.data.data[0]
+		if(text && typeof text === 'string') text = text.trim(); else text = ""
+
 	    const comment = final ? `STT final: ${text}` : `STT in-progress: ${text}`
 
-		const blob = {human:{
-			text,
-			interrupt : performance.now(),
-			confidence : 1,
-			spoken:true,
-			bargein: true,
-			rcounter,bcounter,
-			final,
-	        comment
-		}}
+		// workaround hack
+		if(final && this._vad_timeout) { clearTimeout(this._vad_timeout); this._vad_timeout = 0 }
 
-		if(final) {
-			rcounter++
-			bcounter = 1
-		} else {
-			bcounter++
-		}
+		publish({text,final,comment})
+	}
 
-		// experimental output pathway
-		context.human_out(blob,sys)
+	//
+	// resolve barge-in events and final audio
+	//
 
-	})
+	try {
+		const myvad = await vad.MicVAD.new({
+			positiveSpeechThreshold,
+			minSpeechFrames: 5,
+			preSpeechPadFrames: 10,
+			onFrameProcessed: (probs) => { vad_helper(probs,null) },
+			onSpeechEnd: (audio) => { vad_helper(null,audio) }
+		})
+		myvad.start()
+	} catch(err) {
+		console.error(uuid,err)
+	}
+
+	//
+	// resolve stt events
+	//
+
+	worker.addEventListener("message", stt_helper )
 
 }
 
@@ -415,4 +412,5 @@ export const stt_system = {
 
 // start up immediately - no point in waiting
 stt_system.stt.start()
+
 

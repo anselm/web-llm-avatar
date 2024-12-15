@@ -95,7 +95,7 @@ chatForm.addEventListener('submit', async (e) => {
 	e.preventDefault()
 	sys({
 		human:{
-			text:messageInput.value,
+			text:messageInput.value.trim(),
 			confidence:1,
 			spoken:false,
 			final:true,
@@ -108,24 +108,48 @@ chatForm.addEventListener('submit', async (e) => {
 	rcounter++
 })
 
+let allow_localllm = false
+let allow_bargein = false
+let allow_microphone = false
+let allow_autosubmit = false
+
+function handleSwitch(switchId, state=false) {
+	switch (switchId) {
+		case 'local-llm':
+			console.log("...local",state)
+			allow_localllm = state
+			// turn local on or off
+			// @todo add local url support
+			sys({llm_configure:{local:state}})
+			break;
+		case 'microphone':
+			allow_microphone = state
+			// turn microphone off or on @todo
+			break;
+		case 'barge-in':
+			allow_bargein = state
+			break;
+		case 'auto-submit':
+			allow_autosubmit = state
+			break;
+		default:
+	}
+}
+
+globalThis.handleSwitch = handleSwitch
+
 /////////////////////////////////////////////////////////////////////////////////////
 // ux helper singleton - watches pub sub events
 /////////////////////////////////////////////////////////////////////////////////////
 
 function resolve(blob,sys) {
 
-	//
 	// paint 'ready' when actually done talking - @todo this feels a bit sloppy
-	//
-
 	if(blob.audio_done && blob.audio_done.final) {
 		setStatus('Ready')
 	}
 
-	//
 	// paint general status messages
-	//
-
 	if(blob.status) {
 		setStatus(blob.status.text,blob.status.color || 'loading')
 		//blob.status.progress >= 1.0 ? setStatus(null,'ready') : setStatus(text,'loading')
@@ -136,10 +160,7 @@ function resolve(blob,sys) {
 		//}
 	}
 
-	//
-	// indicate status based on llm breath traffic
-	//
-
+	// visually indicate status based on llm breath traffic
 	if(blob.breath) {
 		if(blob.breath.breath) {
 			addTextToChatWindow('system',blob.breath.breath)
@@ -149,24 +170,20 @@ function resolve(blob,sys) {
 		}
 	}
 
-	//
-	// human bargein / input - append a few details to the packet
-	//
-
+	// human bargein / input - the goal here is to enhance the packet and pass it onwards
 	if(!blob.human) return
-
 	const human = blob.human
+	const text = human.text
 
-	// get text if any and sanitize a bit
-	const text = human.text ? human.text.trim() : ""
-
-	// hack: the vad will misfire sometimes and never finish - so use a timeout for that case only
+	// workaround - sometimes barge-ins will occur without any closure - and ux will be hung
 	if(human.spoken) {
 		if(this._vad_timeout) clearTimeout(this._vad_timeout)
 		this._vad_timeout = 0
 		if(!human.final) {
 			this._vad_timeout = setTimeout( ()=> {
-				console.log('...resetting to ready')
+				console.log(uuid,'...resetting to ready')
+				// disabled for now - annoying to flush text
+				//messageInput.value = ''
 				setStatus('Ready')
 			},5000)
 		}
@@ -175,9 +192,27 @@ function resolve(blob,sys) {
 	// not final? no actual text? just provide some useful feedback, show voice input and return
 	if(!human.final || !text.length) {
 		if(human.spoken) {
-			messageInput.value = text
+			// disabled because the stt wasm blob never reports partials and it is annoying to flush text
+			//messageInput.value = text // dump partial spoken into chat input
 		}
 		setStatus(human.comment ? human.comment : 'Pondering','thinking')
+
+		// hack: block barge-in by wrecking the packet so that nobody else further in the chain gets it
+		if(!allow_bargein) {
+			delete blob.human
+		}
+
+		return
+	}
+
+	// stuff the system content in
+	human.systemContent = systemContentInput.value
+
+	// hack: block auto-voice submit by wrecking the packet - and push it to the text window only
+	if(human.spoken && !allow_autosubmit) {
+		messageInput.value = text
+		delete blob.human
+		setStatus('Heard full sentence','ready')
 		return
 	}
 
@@ -204,29 +239,11 @@ function resolve(blob,sys) {
 	// paint human text to chat history box
 	addTextToChatWindow('You', text)
 
-	// find a target entity to talk to and then use its llm context - for future multi agent scenarios
-	const name = human.target = 'default'
-	let llm = blob.human.llm = this.ux.targets[name]
-	if(!llm) {
-		llm = blob.human.llm = this.ux.targets[name] = {
-			stream: true,
-			messages: [
-				{
-					role: "system",
-					content: systemContentInput.value
-				}
-			],
-			temperature: 0.3,
-			max_tokens: 256,
-			breath: ''
-		}
-	}
+	// pretend we are in a multi agent scenario; there can be multiple llms and multiple puppets
+	// decide on one to associate the traffic with as a target
+	// as the packet continues to flow through all observers the llm-system will use this fact
 
-	// set llm pre-prompt configuration
-	llm.messages[0].content = systemContentInput.value
-
-	// stuff new human utterance onto the llm reasoning context
-	llm.messages.push( { role: "user", content:text } )
+	human.target = 'default'
 
 	// try provide some reasonable feedback at this time
 	setStatus('Thinking','thinking')

@@ -61,7 +61,7 @@ const voicesys = {
 				const comment = `User vocalization ${bcounter} final ${final}`
 				const blob = {
 					human:{
-						text,
+						text: text.trim(),
 						timestamp: performance.now(),
 						confidence,
 						spoken:true,

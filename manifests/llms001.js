@@ -60,6 +60,7 @@ export const llm_alexandria = {
 	},
 }
 
+// unused
 const llm_quaxel = {
 	uuid: 'agent_quaxel',
 	llm: {

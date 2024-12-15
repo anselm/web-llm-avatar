@@ -9,8 +9,8 @@ import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys@1.0.8/src/sys.js'
 sys({
 	load:[
 
-		// publishes new {human} packets
-		// arguably could publish a dedicated {bargein} event for clarity @todo
+		// publishes new {human} packet including {human.bargein}
+		// arguably could publish a dedicated {stop} or naked {bargein} for clarity @todo
 		'here/src/stt.js',
 		'here/src/stt-sys.js',
 
@@ -33,11 +33,14 @@ sys({
 		// 'here/src/audio.js',
 
 		// 3d scene support
-		'https://cdn.jsdelivr.net/npm/orbital-volume/volume.js',
+		'here/shared/orbital/orbital-volume/volume.js',
 
 		// observes {audio} packets
 		// observes {puppet} packets
-		'https://cdn.jsdelivr.net/npm/orbital-puppet/puppet.js',
+		'here/shared/orbital/orbital-puppet/puppet.js',
+
+		// llms
+		'here/manifests/llms001.js',
 
 		// generates {puppet} packets
 		'here/manifests/geometry001.js',

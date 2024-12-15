@@ -28,7 +28,7 @@ export const aaac_camera001 = {
 		geometry: 'camera',
 		pose:{
 			position:[0,1,4],
-			lookat:[0,1.5,0]
+			love:[0,1.5,0]
 		}
 	}
 }
