@@ -262,12 +262,6 @@ async function start() {
 			rcounter, bcounter,
 		}
 
-		// merge overtop defaults
-		human = Object.assign(defaults,human)
-
-		// publish - testing out an idea of formal outputs rather than directly to sys()
-		context.human_out({ bargein: true, human })
-
 		if(human.final) {
 			rcounter++
 			bcounter = 1
@@ -275,8 +269,12 @@ async function start() {
 			bcounter++
 		}
 
-		// experimental output pathway
-		context.human_out({human},sys)
+		// merge overtop defaults
+		human = Object.assign(defaults,human)
+
+		// publish - testing out an idea of formal outputs rather than directly to sys()
+		context.human_out({ bargein: true, human },sys)
+
 	}
 
 	//
