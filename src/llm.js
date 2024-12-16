@@ -103,36 +103,29 @@ async function llm_resolve(agent,blob) {
 	// use a remote endpoint?
 	if(!agent.llm_local) {
 
-		// configure fetch
-		const props = {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			}
-		}
-
-		// set bearer
-		props.headers.Authorization = `Bearer ${agent.llm_auth||""}`
-
-		const stuff = {
+		// configure body - with some flexibility hacked in for other servers aside from openai
+		let body = {
 			model: 'gpt-3.5-turbo',
 			messages:llm.messages
 		}
+		if(agent.llm_url && agent.llm_url.includes('openai') == false) {
+			body.question = text
+		}
+		body = JSON.stringify(body)
 
-		// if not actually openai then inject the question directly - for flowise
-		if(!agent.llm_url) stuff.question = text
+		// set fetch props
+		const props = {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${agent.llm_auth||""}`
+			},
+			body
+		}
 
-		// encode blob - trying to deal with both openai and some other kinds of server side handlers
-		props.body = JSON.stringify(stuff)
-
-		// url
-		const url = agent.llm_url || 'https://api.openai.com/v1/chat/completions'
-
-console.log("... trying",url,text)
-
-		// do reasoning
+		// fetch llm response
 		try {
-			const response = await fetch(url,props)
+			const response = await fetch(agent.llm_url,props)
 			if(!response.ok) {
 				sys({breath:{breath:"error talking to remote url",ready:true,final:true,rcounter,bcounter,interrupt}})
 				console.error("llm reasoning error",response)

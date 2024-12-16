@@ -10,7 +10,6 @@ const chatdiv = document.body // createElement('div')
 //chatdiv.innerHTML = content
 
 const messagesContainer = chatdiv.querySelector('#messages')
-const chatForm = chatdiv.querySelector('#chat-form')
 const messageInput = chatdiv.querySelector('#message-input')
 const systemContentInput = chatdiv.querySelector('#system-content-input')
 const statusBox = chatdiv.querySelector('#status-box')
@@ -67,46 +66,41 @@ function addTextToChatWindow(sender, text) {
 }
 
 //
-// focus the input handler for convenience
-//
-
-messageInput.focus()
-
-//
-// utility to fire an event to enable the built in speech recognizer (as opposed to whisper which is on by default)
-//
-
-let desired = true
-
-voiceButton.onclick = () => {
-	desired = desired ? false : true
-	voiceButton.innerHTML = desired ? "Using Built In STT" : "Using Whisper STT"
-	sys({stt:{desired}})
-}
-voiceButton.onclick()
-
-//
-// utility to fire a human text event on the user hitting return on the input dialog
+// message input support
+// rcounter tracks total messages
 //
 
 let rcounter = 1
+let typing = 0
 
-chatForm.addEventListener('submit', async (e) => {
-	e.preventDefault()
-	sys({
-		human:{
-			text:messageInput.value.trim(),
-			confidence:1,
-			spoken:false,
-			final:true,
-			interrupt:performance.now(),
-			rcounter,
-			bcounter:1,
-			bargein:true
-		}
-	})
-	rcounter++
+messageInput.focus()
+
+messageInput.addEventListener('keydown', (event) => {
+	typing++
+	if (event.key === 'Enter') {
+		event.preventDefault()
+		typing = 0
+		const text = messageInput.value.trim()
+		const interrupt = performance.now()
+		sys({
+			human:{
+				text,
+				confidence:1,
+				spoken:false,
+				final:true,
+				interrupt,
+				rcounter,
+				bcounter:1,
+				bargein:true
+			}
+		})
+		rcounter++
+	}
 })
+
+//
+// handle buttons
+//
 
 let allow_localllm = false
 let allow_bargein = false
@@ -114,6 +108,9 @@ let allow_microphone = false
 let allow_autosubmit = false
 let llm_url = "https://api.openai.com/v1/chat/completions"
 let llm_auth = ""
+
+// voice on/off enabled versus desired - @todo revisit
+let desired = true
 
 function handleSwitch(switchId, state=false) {
 	switch (switchId) {
@@ -138,13 +135,27 @@ function handleSwitch(switchId, state=false) {
 	}
 }
 
+
+//
+// utility to fire an event to enable the built in speech recognizer (as opposed to whisper which is on by default)
+//
+
+voiceButton.onclick = () => {
+	desired = desired ? false : true
+	voiceButton.innerHTML = desired ? "Using Built In STT" : "Using Whisper STT"
+	sys({stt:{desired}})
+}
+voiceButton.onclick()
+
+
+// hack for now exposed @todo
 globalThis.handleSwitch = handleSwitch
 
 /////////////////////////////////////////////////////////////////////////////////////
 // ux helper singleton - watches pub sub events
 /////////////////////////////////////////////////////////////////////////////////////
 
-function resolve(blob,sys) {
+async function resolve(blob,sys) {
 
 	// paint 'ready' when actually done talking - @todo this feels a bit sloppy
 	if(blob.audio_done && blob.audio_done.final) {
@@ -199,9 +210,10 @@ function resolve(blob,sys) {
 		}
 		setStatus(human.comment ? human.comment : 'Pondering','thinking')
 
-		// hack: block barge-in by wrecking the packet so that nobody else further in the chain gets it
+		// a rare example of forcing the underlying pub sub system to abort the pub-sub flow
 		if(!allow_bargein) {
 			delete blob.human
+			return { force_abort_sys: true }
 		}
 
 		return
@@ -209,6 +221,12 @@ function resolve(blob,sys) {
 
 	// stuff the system content in
 	human.systemContent = systemContentInput.value
+
+	// on spoken input while typing - ignore
+	if(typing && human.spoken) {
+		addTextToChatWindow('Support',`Ignoring spoken text while typing: ${human.text}`)
+		return { force_abort_sys: true }
+	}
 
 	// hack: block auto-voice submit by wrecking the packet - and push it to the text window only
 	if(human.spoken && !allow_autosubmit) {
@@ -224,7 +242,7 @@ function resolve(blob,sys) {
 		const breath = text.substring(4)
 		const interrupt = performance.now()
 		sys({breath:{breath,interrupt,ready:true,final:true}})
-		return
+		return { force_abort_sys: true }
 	}
 
 	// debugging - auth, url
@@ -233,8 +251,8 @@ function resolve(blob,sys) {
 		llm_auth = text.substring(5).trim()
 		const interrupt = performance.now()
 		sys({llm_configure:{local:allow_localllm,url:llm_url,auth:llm_auth}})
-		alert(llm_auth)
-		return
+		addTextToChatWindow('Support','Set Remote Auth')
+		return { force_abort_sys: true }
 	}
 
 	// debugging - auth, url
@@ -243,16 +261,17 @@ function resolve(blob,sys) {
 		llm_url = text.substring(4).trim()
 		const interrupt = performance.now()
 		sys({llm_configure:{local:allow_localllm,url:llm_url,auth:llm_auth}})
-		alert(llm_url)
-		return
+		addTextToChatWindow('Support','Set Remote URL')
+		return { force_abort_sys: true }
 	}
 
 	// debugging - if user says 'stop' then stop; leveraging barge in detector implicitly
 	if(text === "stop" || text === "please stop" || text === "ok stop") {
 		messageInput.value = ''
 		human.text = ''
+		addTextToChatWindow('Support','Stopped everything')
 		setStatus('Stopped!','ready')
-		return
+		return // actually let empty packet flow thru - do not do { force_abort_sys: true }
 	}
 
 	// clear human text from chat input box now - since it may be set by voice
