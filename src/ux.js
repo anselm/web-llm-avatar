@@ -112,7 +112,7 @@ let allow_localllm = false
 let allow_bargein = false
 let allow_microphone = false
 let allow_autosubmit = false
-let llm_url = ""
+let llm_url = "https://api.openai.com/v1/chat/completions"
 let llm_auth = ""
 
 function handleSwitch(switchId, state=false) {

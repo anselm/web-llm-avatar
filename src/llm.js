@@ -114,14 +114,21 @@ async function llm_resolve(agent,blob) {
 		// set bearer
 		props.headers.Authorization = `Bearer ${agent.llm_auth||""}`
 
-		// encode blob for openai
-		props.body = JSON.stringify({
+		const stuff = {
 			model: 'gpt-3.5-turbo',
 			messages:llm.messages
-		})
+		}
+
+		// if not actually openai then inject the question directly - for flowise
+		if(!agent.llm_url) stuff.question = text
+
+		// encode blob - trying to deal with both openai and some other kinds of server side handlers
+		props.body = JSON.stringify(stuff)
 
 		// url
 		const url = agent.llm_url || 'https://api.openai.com/v1/chat/completions'
+
+console.log("... trying",url,text)
 
 		// do reasoning
 		try {
@@ -131,8 +138,13 @@ async function llm_resolve(agent,blob) {
 				console.error("llm reasoning error",response)
 			} else {
 				const json = await response.json()
-				console.log(json)
-				const sentence = json.choices[0].message.content
+				// hack: handle output from a couple other kinds of systems as well as openai
+				let sentence
+				if(json.choices) {
+					sentence = json.choices[0].message.content
+				} else {
+					sentence = json.text
+				}
 				const fragments = sentence.split(/[.!?]|,/);
 				fragments.forEach(breath => {
 					sys({breath:{breath,ready:true,final:true,rcounter,bcounter,interrupt}})
@@ -145,47 +157,6 @@ async function llm_resolve(agent,blob) {
 
 		return
 	}
-
-	/*
-	//// TEST a flowise flow
-
-	try {
-
-	    const response = await fetch(
-	        "http://localhost:3020/api/v1/prediction/8057ad20-37f4-4cd7-8688-5dc135f5cecb",
-	        {
-	            method: "POST",
-	            headers: {
-	                Authorization: "Bearer OS-ncOA5-h6CqaNLwmfe-jkBMTW9ThMxNkKr-d00etc",
-	                "Content-Type": "application/json"
-	            },
-	            body: JSON.stringify({"question":"what is up?"})
-	        }
-	    );
-
-	    const result = await response.json();
-
-	if(!result.text) {
-		console.error("*********** no text",result)
-		return
-	}
-
-
-	const sentences = result.text.split(/[.!?]|,/);
-	sentences.forEach(breath => {
-		sys({breath:{breath,ready:true,final:true,rcounter,bcounter,interrupt}})
-	})
-
-
-	} catch(err) {
-		console.error(err)
-	}
-
-	return
-
-
-	//////////////////////////
-	*/
 
 	//
 	// local support
