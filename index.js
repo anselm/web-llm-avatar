@@ -32,15 +32,15 @@ sys({
 		// disabled for now since puppet below has to orchestrate more tightly
 		// 'here/src/audio.js',
 
+		// llms
+		'here/manifests/llms001.js',
+
 		// 3d scene support
 		'https://cdn.jsdelivr.net/npm/orbital-volume@latest/volume.js',
 
 		// observes {audio} packets
 		// observes {puppet} packets
 		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.1.1/puppet.js',
-
-		// llms
-		'here/manifests/llms001.js',
 
 		// generates {puppet} packets
 		'here/manifests/geometry001.js',

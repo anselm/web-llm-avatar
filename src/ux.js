@@ -11,6 +11,7 @@ const chatdiv = document.body // createElement('div')
 
 const messagesContainer = chatdiv.querySelector('#messages')
 const messageInput = chatdiv.querySelector('#message-input')
+const chatForm = chatdiv.querySelector('#chat-form')
 const systemContentInput = chatdiv.querySelector('#system-content-input')
 const statusBox = chatdiv.querySelector('#status-box')
 const progressBar = chatdiv.querySelector('#progress-bar')
@@ -73,11 +74,9 @@ function addTextToChatWindow(sender, text) {
 let rcounter = 1
 let typing = 0
 
-messageInput.focus()
-
-messageInput.addEventListener('keydown', (event) => {
+const handle_user_text_input = (event) => {
 	typing++
-	if (event.key === 'Enter') {
+	if (event.type === 'submit' || (event.type === 'keydown' && event.key === 'Enter')) {
 		event.preventDefault()
 		typing = 0
 		const text = messageInput.value.trim()
@@ -96,7 +95,11 @@ messageInput.addEventListener('keydown', (event) => {
 		})
 		rcounter++
 	}
-})
+}
+
+messageInput.focus()
+messageInput.addEventListener('keydown', handle_user_text_input )
+chatForm.addEventListener('submit', handle_user_text_input )
 
 //
 // handle buttons
