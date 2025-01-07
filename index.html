@@ -1,196 +1,72 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js"></script>
-<script type="importmap">
-    {
-        "imports": {
-			"three": "https://unpkg.com/three@0.148.0/build/three.module.js",
-			"three/addons/": "https://unpkg.com/three@0.148.0/examples/jsm/",
-			"orbital/": "./shared/orbital/",
-			"assets/": "./assets/",
-			"here/": "./"
-        }
-    }
-</script>
-</head>
-<body>
 
-<style>
+    <head>
+        <title>Web LLM Avatar Demo</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://unpkg.com/three@0.148.0/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@0.148.0/examples/jsm/",
+                    "orbital-sys/": "https://cdn.jsdelivr.net/npm/orbital-sys@latest/",
+                    "orbital-volume/": "https://cdn.jsdelivr.net/npm/orbital-volume@latest/",
+                    "orbital-puppet/": "https://cdn.jsdelivr.net/npm/orbital-puppet@1.1.9/",
+                    "xxxorbital-puppet/": "./shared/orbital-puppet/",
+                    "assets/": "./assets/",
+                    "here/": "./"
+                }
+            }
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat&family=Open+Sans&display=swap" rel="stylesheet">        
+        <link rel="stylesheet" href="style.css">
+    </head>
 
-body {
-	font-family: Arial, sans-serif;
-	line-height: 1.6;
-	color: #333;
-	max-width: 800px;
-	margin: 0 auto;
-	padding: 20px;
-	background-color: #f4f4f4;
-}
-h1 {
-	color: #2c3e50;
-	text-align: center;
-}
+    <body>
+        <div class="PuppetContainer" id="PuppetContainer">
+            <div id="PuppetHeader" class="PuppetHeader">
+                <a href="https://github.com/anselm/web-llm-avatar">See github</a>
+            </div>
+            <div class="PuppetMain">
+                <div class="PuppetMainLeft">
+                    <div id="PuppetChatHistory"></div>
+                </div>
+                <div class="PuppetMainRight">
+                    <div style="width:100%;height:100%" id="volume001"></div>
+                </div>
+            </div>
+            <div id="PuppetBottom" class="PuppetMain PuppetBottom">
+                <div class="PuppetMainLeft">
+                    <div class="PuppetChatInput">
+                        <textarea rows=1 id="PuppetChatInputTextArea" placeholder="Type your message here..."></textarea>
+                    </div>
+                    <canvas class="PuppetMicrophonePanel" id="PuppetMicrophonePanel"></canvas>
+                    <div class="PuppetControl">
+                        <div class="PuppetControlLeft">
+                            <button id="PuppetControlMicrophone"><img src="icons/microphone.svg" alt="Microphone" /></button>
+                            <button id="PuppetControlAgent"><img src="icons/agent.svg" alt="Agent" /></button>
+                            <button id="PuppetControlBarge"><img src="icons/barge-in.svg" alt="Barge-in" /></button>
+                            <button id="PuppetControlAuto"><img src="icons/auto-submit.svg" alt="Auto-submit" /></button>
+                        </div>
+                        <div class="PuppetControlRight">
+                            <button id="PuppetControlSubmit"><img src="icons/submit.svg" alt="Submit" /></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="PuppetMainRight"></div>
+            </div>
+        </div>
+    </body>
 
-
-#status-box {
-	text-align: center;
-	padding: 10px;
-	margin-bottom: 20px;
-	border-radius: 4px;
-	font-weight: bold;
-}
-.status-ready {
-	background-color: #2ecc71;
-	color: #fff;
-}
-.status-thinking {
-	background-color: #f1c40f;
-	color: #333;
-}
-.status-pausing {
-	background-color: #e7ec3c;
-	color: #fff;
-}
-.status-speaking {
-	background-color: #e74c3c;
-	color: #fff;
-}
-.status-loading {
-	background-color: #c0392b;
-	color: #fff;
-}
-
-#system-content-container, #chat-container, #about-container {
-	background-color: #fff;
-	border-radius: 8px;
-	padding: 20px;
-	margin-bottom: 20px;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-label {
-	display: block;
-	margin-bottom: 5px;
-	font-weight: bold;
-}
-textarea, input[type="text"] {
-	width: 100%;
-	padding: 10px;
-	margin-bottom: 10px;
-	border: 1px solid #ddd;
-	border-radius: 4px;
-	box-sizing: border-box;
-}
-button {
-	background-color: #3498db;
-	color: #fff;
-	border: none;
-	padding: 10px 15px;
-	border-radius: 4px;
-	cursor: pointer;
-	transition: background-color 0.3s;
-}
-button:hover {
-	background-color: #2980b9;
-}
-#messages {
-	height: 300px;
-	overflow-y: scroll;
-	border: 1px solid #ddd;
-	padding: 10px;
-	margin-bottom: 10px;
-	background-color: #fff;
-	border-radius: 4px;
-}
-#chat-form {
-	display: flex;
-}
-#message-input {
-	flex-grow: 1;
-	margin-right: 10px;
-}
-
-    .switch-container {
-      display: flex;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .switch-label {
-      font-weight: bold;
-      margin-right: 10px;
-      flex-grow: 1;
-    }
-    .switch-container input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-    }
-
-</style>
-
-<div id='about-container'>
-<h1>Web llm avatar demo</h1>
-<p>See <a href='https://github.com/anselm/web-llm-avatar'>web-llm-avatar</a> for more details. Things you can do here include:
-<ul>
-<li>Try a local llm (not on mobile)</li>
-<li>Try barge in detection</li>
-<li>Try speaking and then interrupting the bot by saying 'stop!'</li>
-<li>Say 'say something' to repeat your own utterance</li>
-<li>Say 'auth openai-key to use openai'</li>
-<li>Say 'url my-url to use your own url'</li>
-</ul>
-</p>
-</div>
-
-<div 
-
-<div id="status-box" class="status-ready">Ready...</div>
-
-<div id="system-content-container">
-  <div class="switch-container">
-    <label class="switch-label" for="local-llm">Use Local LLM</label>
-    <input type="checkbox" id="local-llm" onclick="handleSwitch('local-llm', this.checked)">
-  </div>
-
-  <div class="switch-container">
-    <label class="switch-label" for="microphone">Microphone On</label>
-    <input type="checkbox" id="microphone" onclick="handleSwitch('microphone', this.checked)">
-  </div>
-
-  <div class="switch-container">
-    <label class="switch-label" for="barge-in">Allow Barge In Vocalization</label>
-    <input type="checkbox" id="barge-in" onclick="handleSwitch('barge-in', this.checked)">
-  </div>
-
-  <div class="switch-container">
-    <label class="switch-label" for="auto-submit">Automatically Submit Vocalizations</label>
-    <input type="checkbox" id="auto-submit" onclick="handleSwitch('auto-submit', this.checked)">
-  </div>
-</div>
-
-<div id="system-content-container">
-	<label for="system-content-input">LLM Configuration Prompt:</label>
-	<textarea id="system-content-input" rows="4" placeholder="Describe how the llm should behave...">Haiku master manta ray, talks only in Haiku, what depths find you?</textarea>
-</div>
-
-<div id="chat-container">
-	<div id="messages"></div>
-	<form id="chat-form">
-		<input type="text" id="message-input" placeholder="Type your message..." autofocus>
-		<button type="submit">Send</button>
-	</form>
-	<!-- since built in voice is so poor lets turn off the button for now -->
-	<button style="display:none" id='voice-button'>Click to enable Voice Input</button>
-
-	<div id="volume001" style="width:100%;height:512px"></div>
-</div>
-
-
-
-
-</body>
 </html>
-<script type="module" src="index.js"></script>
+
+
+<script src="index.js" type="module"></script>
+
+<script src="audio-effect.js" type="module"></script>
+
+<script src="chat.js" type="module"></script>
+
