@@ -11,13 +11,14 @@ let typing = 0
 function resolve(blob) {
 	if(!blob || blob.time || blob.tick) return
 	if(blob.human && blob.human.text && blob.human.spoken && blob.human.text.length && !typing) {
-		PuppetChatInputTextArea.value = blob.human.text
+		if(blob.human.final) {
+			sendToChatHistory(blob.human.text,false)
+		} else {
+			PuppetChatInputTextArea.value = blob.human.text
+		}
 	}
 	if(blob.breath) {
-        const responseMessage = document.createElement('div');
-        responseMessage.className = 'PuppetChatAgent';
-        responseMessage.textContent = blob.breath.breath;
-        PuppetChatHistory.appendChild(responseMessage);
+		sendToChatHistory(blob.breath.breath,false)
 	}
 }
 
@@ -55,31 +56,32 @@ function fixHeight() {
 
     const h0 = PuppetContainer.offsetHeight - 10
     const w0 = PuppetContainer.offsetWidth
-    const h1 = PuppetHeader.offsetHeight
+    const h1 = PuppetAbout.offsetHeight
     const h2 = PuppetChatHistory.offsetHeight
     const h3 = w0 < 800 ? volume001.offsetHeight : 0
     const h4 = PuppetBottom.offsetHeight
-    //    const h5 = PuppetMicrophonePanel.offsetHeight
-    let height = h0 - h1 - h3 - h4 //- h5
-    console.log("width",w0,"container",h0,"header",h1,"chat",h2,"volume",h3,"bottom",h4,"computed",height)
+    const h5 = PuppetMicrophonePanel.offsetHeight
+    let height = h0 - h1 - h3 - h4 - h5
+    console.log("width",w0,"container",h0,"header",h1,"chat before",h2,"volume",h3,"bottom",h4,"mike",h5,"computed",height)
     PuppetChatHistory.style.maxHeight = `${height}px`
     PuppetChatHistory.style.height = `${height}px`
 
 }
 
+function sendToChatHistory(message,isUser=true) {
+    const newMessage = document.createElement('div');
+    newMessage.className = isUser ? 'PuppetChatUser' : 'PuppetChatAgent';
+    newMessage.textContent = message;
+    PuppetChatHistory.appendChild(newMessage);
+    PuppetChatHistory.scrollTop = PuppetChatHistory.scrollHeight;
+    PuppetChatInputTextArea.value = '';
+    fixHeight()
+}
+
 function submitMessage() {
     const message = PuppetChatInputTextArea.value.trim();
     if (message && message.length) {
-
-        const newMessage = document.createElement('div');
-        newMessage.className = 'PuppetChatUser';
-        newMessage.textContent = message;
-        PuppetChatHistory.appendChild(newMessage);
-        PuppetChatHistory.scrollTop = PuppetChatHistory.scrollHeight;
-        PuppetChatInputTextArea.value = '';
-
-        fixHeight()
-
+    	sendToChatHistory(message,true)
         sendToPuppet(message)
     }
 }

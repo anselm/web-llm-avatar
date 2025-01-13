@@ -3,26 +3,26 @@
 // Load the orbital pub/sub service and then load up a few systems that will handle message traffic
 //
 
-import sys from 'orbital-sys/src/sys.js'
+import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys@latest/src/sys.js'
 
 sys({
 	load:[
 
 		// 3d scene system - observes {volume} components and makes a 3d display on a named div or volume001
-		'orbital-volume/volume.js',
+		// 'orbital-volume/volume.js',
 
 		// puppet speech to text system - publishes new {human} packet including {human.bargein}
-		'orbital-puppet/chat/stt.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/chat/stt.js',
 
 		// puppet reasoning system - observes {human} packets including {human.bargein} and may publish global {breath} packets
-		'orbital-puppet/chat/llm.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/chat/llm.js',
 
 		// puppet text to speech system - observes {breath} packets and generate {speech} packets - also observes {human.bargein}
-		'orbital-puppet/chat/tts.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/chat/tts.js',
 
 		// puppet animation system - binds to a {puppet} that references 3d geometry
 		// also observes {audio} packets and animates a specified geometry - also observes {human.bargein}
-		'orbital-puppet/puppet.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/puppet.js'
 	]
 })
 
@@ -133,9 +133,9 @@ sys([
 			// built-in stt
 			builtin_stt: false,
 			// barge in allowed - allow spoken aborts (although important for speech to speech it can be overly annoying in noisy environments)
-			bargein: false,
+			bargein: true,
 			// auto-submit complete spoken utterances; a nice feature in voice to voice interactions
-			autosubmit: false,
+			autosubmit: true,
 		
 		},
 

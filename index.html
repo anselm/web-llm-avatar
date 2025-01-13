@@ -12,24 +12,18 @@
                     "three/addons/": "https://unpkg.com/three@0.148.0/examples/jsm/",
                     "orbital-sys/": "https://cdn.jsdelivr.net/npm/orbital-sys@latest/",
                     "orbital-volume/": "https://cdn.jsdelivr.net/npm/orbital-volume@latest/",
-                    "orbital-puppet/": "https://cdn.jsdelivr.net/npm/orbital-puppet@1.1.9/",
-                    "xxxorbital-puppet/": "./shared/orbital-puppet/",
+                    "orbital-puppet/": "https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/",
+                    "xxorbital-puppet/": "./shared/orbital/orbital-puppet/",
                     "assets/": "./assets/",
                     "here/": "./"
                 }
             }
         </script>
-        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Montserrat&family=Open+Sans&display=swap" rel="stylesheet">        
         <link rel="stylesheet" href="style.css">
     </head>
 
     <body>
         <div class="PuppetContainer" id="PuppetContainer">
-            <div id="PuppetHeader" class="PuppetHeader">
-                <a href="https://github.com/anselm/web-llm-avatar">See github</a>
-            </div>
             <div class="PuppetMain">
                 <div class="PuppetMainLeft">
                     <div id="PuppetChatHistory"></div>
@@ -43,17 +37,20 @@
                     <div class="PuppetChatInput">
                         <textarea rows=1 id="PuppetChatInputTextArea" placeholder="Type your message here..."></textarea>
                     </div>
-                    <canvas class="PuppetMicrophonePanel" id="PuppetMicrophonePanel"></canvas>
                     <div class="PuppetControl">
                         <div class="PuppetControlLeft">
-                            <button id="PuppetControlMicrophone"><img src="icons/microphone.svg" alt="Microphone" /></button>
-                            <button id="PuppetControlAgent"><img src="icons/agent.svg" alt="Agent" /></button>
-                            <button id="PuppetControlBarge"><img src="icons/barge-in.svg" alt="Barge-in" /></button>
-                            <button id="PuppetControlAuto"><img src="icons/auto-submit.svg" alt="Auto-submit" /></button>
+                            <button class="active" id="PuppetControlMicrophone"><img src="icons/microphone.svg" alt="Microphone" /></button>
+                            <button class="active" id="PuppetControlAgent"><img src="icons/agent.svg" alt="Agent" /></button>
+                            <button class="active" id="PuppetControlBarge"><img src="icons/barge-in.svg" alt="Barge-in" /></button>
+                            <button class="active" id="PuppetControlAuto"><img src="icons/auto-submit.svg" alt="Auto-submit" /></button>
                         </div>
                         <div class="PuppetControlRight">
                             <button id="PuppetControlSubmit"><img src="icons/submit.svg" alt="Submit" /></button>
                         </div>
+                    </div>
+                    <canvas class="PuppetMicrophonePanel" id="PuppetMicrophonePanel"></canvas>
+                    <div id="PuppetAbout" class="PuppetAbout">
+                        <a href="https://github.com/anselm/web-llm-avatar">See github</a>
                     </div>
                 </div>
                 <div class="PuppetMainRight"></div>
