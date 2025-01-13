@@ -1,5 +1,5 @@
 
-import sys from 'orbital-sys/src/sys.js'
+import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys@latest/src/sys.js'
 
 let rcounter = 1000
 let typing = 0

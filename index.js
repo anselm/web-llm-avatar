@@ -9,20 +9,20 @@ sys({
 	load:[
 
 		// 3d scene system - observes {volume} components and makes a 3d display on a named div or volume001
-		'orbital-volume/volume.js',
+		'https://cdn.jsdelivr.net/npm/orbital-volume/volume.js',
 
 		// puppet speech to text system - publishes new {human} packet including {human.bargein}
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/chat/stt.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/chat/stt.js',
 
 		// puppet reasoning system - observes {human} packets including {human.bargein} and may publish global {breath} packets
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/chat/llm.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/chat/llm.js',
 
 		// puppet text to speech system - observes {breath} packets and generate {speech} packets - also observes {human.bargein}
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/chat/tts.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/chat/tts.js',
 
 		// puppet animation system - binds to a {puppet} that references 3d geometry
 		// also observes {audio} packets and animates a specified geometry - also observes {human.bargein}
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/puppet.js'
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/puppet.js'
 	]
 })
 
@@ -149,9 +149,9 @@ sys([
 			max_tokens: 256,
 
 			llm_local: true,
-			llm_url: '',
+			llm_url: 'https://api.openai.com/v1/chat/completions',
 			llm_auth: '',
-			llm_model: 'llama2:latest' //'llama3.3:latest',
+			llm_model: 'gpt-4o' //'llama3.3:latest',
 
 		},
 
