@@ -9,7 +9,7 @@ sys({
 	load:[
 
 		// 3d scene system - observes {volume} components and makes a 3d display on a named div or volume001
-		// 'orbital-volume/volume.js',
+		'orbital-volume/volume.js',
 
 		// puppet speech to text system - publishes new {human} packet including {human.bargein}
 		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.1/chat/stt.js',
