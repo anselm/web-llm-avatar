@@ -12,7 +12,7 @@ function resolve(blob) {
 	if(!blob || blob.time || blob.tick) return
 	if(blob.human && blob.human.text && blob.human.spoken && blob.human.text.length && !typing) {
 		if(blob.human.final) {
-			sendToChatHistory(blob.human.text,false)
+			sendToChatHistory(blob.human.text,true)
 		} else {
 			PuppetChatInputTextArea.value = blob.human.text
 		}

@@ -3,7 +3,7 @@
 // Load the orbital pub/sub service and then load up a few systems that will handle message traffic
 //
 
-import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys@latest/src/sys.js'
+import sys from 'https://cdn.jsdelivr.net/npm/orbital-sys/src/sys.js'
 
 sys({
 	load:[
@@ -12,17 +12,20 @@ sys({
 		'https://cdn.jsdelivr.net/npm/orbital-volume/volume.js',
 
 		// puppet speech to text system - publishes new {human} packet including {human.bargein}
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/chat/stt.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.4/chat/stt.js',
+
+		// bring in chat ux after stt so that speech packets can be blocked if the user is typing
+		'here/chat-ux.js',
 
 		// puppet reasoning system - observes {human} packets including {human.bargein} and may publish global {breath} packets
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/chat/llm.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.4/chat/llm.js',
 
 		// puppet text to speech system - observes {breath} packets and generate {speech} packets - also observes {human.bargein}
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/chat/tts.js',
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.4/chat/tts.js',
 
 		// puppet animation system - binds to a {puppet} that references 3d geometry
 		// also observes {audio} packets and animates a specified geometry - also observes {human.bargein}
-		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.3/puppet.js'
+		'https://cdn.jsdelivr.net/npm/orbital-puppet@1.2.4/puppet.js'
 	]
 })
 
@@ -115,46 +118,58 @@ sys([
 	//
 
 	{
+		// uuid - mandatory 
 		uuid: 'alexandria',
+
+		// 3d geometry
 		volume: {
 			geometry: 'file',
-			url: 'assets/avatars/rpm-mixamo-t-posed.glb',
+			url: 'https://models.readyplayer.me/664956c743dbd726eefeb99b.glb?morphTargets=ARKit,Oculus+Visemes,mouthOpen,mouthSmile,eyesClosed,eyesLookUp,eyesLookDown&textureSizeLimit=1024&textureFormat=png',
 			pose: {
 				position: [0,0,0]
 			},
-			animations: { default: "assets/animations/unarmed-idle.glb" },
+			animations: { default: `${import.meta.url}/../assets/animations/unarmed-idle.glb` },
 		},
+
+		// puppet effects - required if you want to animate this puppet
 		puppet: {},
 
-		// @todo unused but may want to do this to allow configuration
+		// configures stt but note there is only one stt globally not one per puppet
 		stt: {
-			// microphone on or off
-			microphone: true,
 			// built-in stt
 			builtin_stt: false,
+			// microphone on or off
+			microphone: true,
 			// barge in allowed - allow spoken aborts (although important for speech to speech it can be overly annoying in noisy environments)
 			bargein: true,
 			// auto-submit complete spoken utterances; a nice feature in voice to voice interactions
 			autosubmit: true,
-		
 		},
 
+		// configure llm - mandatory
 		llm: {
 			stream: true,
 			messages: [{
 				role: "system",
-				content: "you are a helpful digital agent",
+				content: `
+					Your are Alexandria or Alex, a virtual human with human normal feelings and emotions.
+					You are a 3d virtual avatar in a 3d virtual space with voice audio input and output.
+					You cannot act on the real world yet; you're currently reasoning using the deepseek llm.
+					`,
 			}],
 			temperature: 0.3,
 			max_tokens: 256,
 
 			llm_local: true,
-			llm_url: 'https://api.openai.com/v1/chat/completions',
+			llm_url: 'http://localhost:11434/v1/chat/completions',
+			xllm_url: 'https://api.openai.com/v1/chat/completions',
 			llm_auth: '',
-			llm_model: 'gpt-4o' //'llama3.3:latest',
+			llm_model: 'deepseek-r1:70b',
+			xllm_model: 'gpt-4o' //'llama3.3:latest',
 
 		},
 
+		// configure tts props - mandatory
 		tts: {
 			remote: false,
 			url: 'https://api.openai.com/v1/audio/speech',
@@ -171,6 +186,9 @@ sys([
 
 			// do stt for whisper timings remotely
 			whisper_remote: false,
-		}
+		},
+
+		// configure audio properties - mandatory
+		audio: {},
 	},
 ])
